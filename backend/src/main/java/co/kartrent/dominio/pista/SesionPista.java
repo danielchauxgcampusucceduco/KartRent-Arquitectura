@@ -24,13 +24,14 @@ public class SesionPista {
     private int cuposVendidos;
     private final TipoKart tipoKart;
     private EstadoSesion estado;
+    private long version;
     private LocalDateTime inicioReal;
     private LocalDateTime finReal;
     private final List<AsignacionKart> asignaciones = new ArrayList<>();
 
     public SesionPista(String codigo, LocalDateTime horaInicioProgramada, int duracionMinutos, int cuposMaximos,
                        int cuposVendidos, TipoKart tipoKart, EstadoSesion estado, LocalDateTime inicioReal,
-                       LocalDateTime finReal, List<AsignacionKart> asignaciones) {
+                       LocalDateTime finReal, List<AsignacionKart> asignaciones, long version) {
         if (cuposMaximos <= 0) throw new ReglaNegocioException("La tanda debe ofrecer al menos un cupo");
         if (duracionMinutos <= 0) throw new ReglaNegocioException("La duración debe ser positiva");
         this.codigo = codigo;
@@ -42,12 +43,13 @@ public class SesionPista {
         this.estado = estado;
         this.inicioReal = inicioReal;
         this.finReal = finReal;
+        this.version = version;
         if (asignaciones != null) this.asignaciones.addAll(asignaciones);
     }
 
     public static SesionPista programar(String codigo, LocalDateTime inicio, int duracionMinutos, int cupos, TipoKart tipoKart) {
         return new SesionPista(codigo, inicio, duracionMinutos, cupos, 0, tipoKart, EstadoSesion.PROGRAMADA,
-                null, null, List.of());
+                null, null, List.of(), 0);
     }
 
     public int cuposDisponibles() {
@@ -129,6 +131,9 @@ public class SesionPista {
         return lineas;
     }
 
+    /** Versión leída de la base de datos (bloqueo optimista); solo la actualiza el repositorio al guardar. */
+    public long getVersion() { return version; }
+    public void registrarVersionPersistida(long version) { this.version = version; }
     public boolean estaEnCurso() { return estado == EstadoSesion.EN_CURSO; }
     public String getCodigo() { return codigo; }
     public LocalDateTime getHoraInicioProgramada() { return horaInicioProgramada; }

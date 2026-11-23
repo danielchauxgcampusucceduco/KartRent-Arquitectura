@@ -33,7 +33,7 @@ public class RegistrarPaso {
     }
 
     public Optional<VueltaRegistrada> ejecutar(String codigoTransponder, Instant marcaTiempo) {
-        return uow.ejecutar(() -> {
+        return uow.ejecutarConReintentos(() -> {
             SesionPista sesion = sesiones.enCursoConTransponder(codigoTransponder)
                     .orElseThrow(() -> new ConflictoException("El transponder " + codigoTransponder
                             + " no está en una tanda en curso"));

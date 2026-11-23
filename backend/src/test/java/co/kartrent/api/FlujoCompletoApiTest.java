@@ -2,6 +2,8 @@ package co.kartrent.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import co.kartrent.aplicacion.puertos.RepositorioSesiones;
+import co.kartrent.dominio.comun.ConflictoConcurrenciaException;
 import co.kartrent.infraestructura.pagos.VerificadorFirmaWebhook;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -15,6 +17,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -37,6 +45,8 @@ class FlujoCompletoApiTest {
     ObjectMapper json;
     @Autowired
     VerificadorFirmaWebhook firma;
+    @Autowired
+    RepositorioSesiones sesiones;
 
     private ResultActions post(String url, String cuerpo) throws Exception {
         return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(url)
@@ -223,5 +233,78 @@ class FlujoCompletoApiTest {
         return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                 .post("/api/v1/reservas/" + codigo + "/pagos").header("Idempotency-Key", clave)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"metodo\":\"" + metodo + "\"}"));
+    }
+
+    /**
+     * Descuento de cupos atómico: 8 clientes reservan 1 cupo a la vez en una tanda de 5. Sin control de concurrencia
+     * dos lecturas simultáneas pisarían el contador (lost update) y se venderían más de 5; con el bloqueo optimista
+     * por versión los perdedores se reintentan y la venta termina exactamente en 5, el resto recibe 409.
+     */
+    @Test
+    @Order(4)
+    void reservasSimultaneasNuncaVendenMasCuposQueLosDisponibles() throws Exception {
+        LocalDateTime inicio = LocalDateTime.now(ZoneId.of("America/Bogota")).plusHours(4).truncatedTo(ChronoUnit.MINUTES);
+        post("/api/v1/sesiones", """
+                {"codigo":"T-CONC","inicio":"%s","duracionMinutos":10,"cupos":5,"tipoKart":"ADULTO"}""".formatted(inicio))
+                .andExpect(status().isCreated());
+        int clientes = 8;
+        for (int i = 1; i <= clientes; i++) {
+            post("/api/v1/clientes", """
+                    {"documento":"10860000%02d","nombre":"Piloto %d","correo":"p%d@example.com","telefono":"300",
+                     "fechaNacimiento":"1995-01-01","aceptaExoneracion":true}""".formatted(i, i, i))
+                    .andExpect(status().isCreated());
+        }
+
+        ExecutorService hilos = Executors.newFixedThreadPool(clientes);
+        CountDownLatch salida = new CountDownLatch(1);
+        List<Future<Integer>> respuestas = new ArrayList<>();
+        for (int i = 1; i <= clientes; i++) {
+            String documento = "10860000%02d".formatted(i);
+            respuestas.add(hilos.submit(() -> {
+                salida.await();
+                return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/reservas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"documentoCliente\":\"" + documento + "\",\"codigoSesion\":\"T-CONC\",\"cupos\":1}"))
+                        .andReturn().getResponse().getStatus();
+            }));
+        }
+        salida.countDown();
+        int creadas = 0;
+        int rechazadas = 0;
+        for (Future<Integer> r : respuestas) {
+            int estado = r.get();
+            if (estado == 201) creadas++;
+            else if (estado == 409) rechazadas++;
+            else throw new AssertionError("Estado inesperado en una reserva concurrente: " + estado);
+        }
+        hilos.shutdown();
+
+        assertThat(creadas).as("reservas creadas").isEqualTo(5);
+        assertThat(rechazadas).as("reservas rechazadas por cupos").isEqualTo(3);
+        mvc.perform(get("/api/v1/sesiones/T-CONC"))
+                .andExpect(jsonPath("$.cuposVendidos").value(5))
+                .andExpect(jsonPath("$.cuposDisponibles").value(0));
+    }
+
+    /** El repositorio rechaza guardar una tanda leída con una versión que otra transacción ya superó. */
+    @Test
+    @Order(5)
+    void guardarConUnaVersionVencidaLanzaConflictoDeConcurrencia() throws Exception {
+        LocalDateTime inicio = LocalDateTime.now(ZoneId.of("America/Bogota")).plusHours(5).truncatedTo(ChronoUnit.MINUTES);
+        post("/api/v1/sesiones", """
+                {"codigo":"T-VER","inicio":"%s","duracionMinutos":10,"cupos":4,"tipoKart":"ADULTO"}""".formatted(inicio))
+                .andExpect(status().isCreated());
+
+        var lecturaA = sesiones.buscar("T-VER").orElseThrow();
+        var lecturaB = sesiones.buscar("T-VER").orElseThrow();
+        assertThat(lecturaA.getVersion()).isEqualTo(lecturaB.getVersion());
+
+        lecturaA.reservarCupos(1);
+        sesiones.guardar(lecturaA);
+        assertThat(lecturaA.getVersion()).isEqualTo(1);
+
+        lecturaB.reservarCupos(1);
+        org.junit.jupiter.api.Assertions.assertThrows(ConflictoConcurrenciaException.class, () -> sesiones.guardar(lecturaB));
+        assertThat(sesiones.buscar("T-VER").orElseThrow().getCuposVendidos()).isEqualTo(1);
     }
 }

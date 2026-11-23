@@ -23,7 +23,7 @@ public class ExpirarReservas {
     }
 
     public int ejecutar() {
-        return uow.ejecutar(() -> {
+        return uow.ejecutarConReintentos(() -> {
             LocalDateTime ahora = LocalDateTime.now(reloj);
             int expiradas = 0;
             for (Reserva r : reservas.pendientesVencidas(ahora)) {

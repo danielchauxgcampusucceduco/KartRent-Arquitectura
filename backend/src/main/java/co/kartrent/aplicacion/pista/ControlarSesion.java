@@ -69,7 +69,7 @@ public class ControlarSesion {
     }
 
     public AsignacionKart asignarKart(String codigoSesion, UUID codigoReserva, String documentoPiloto, int numeroKart) {
-        return uow.ejecutar(() -> {
+        return uow.ejecutarConReintentos(() -> {
             SesionPista sesion = sesion(codigoSesion);
             Reserva reserva = reservas.buscar(codigoReserva)
                     .orElseThrow(() -> new RecursoNoEncontradoException("Reserva " + codigoReserva + " no existe"));
@@ -93,7 +93,7 @@ public class ControlarSesion {
     }
 
     public SesionPista iniciar(String codigoSesion) {
-        return uow.ejecutar(() -> {
+        return uow.ejecutarConReintentos(() -> {
             SesionPista sesion = sesion(codigoSesion);
             sesion.iniciar(LocalDateTime.now(reloj));
             sesiones.guardar(sesion);
@@ -103,7 +103,7 @@ public class ControlarSesion {
 
     /** Al finalizar, Pista reporta el uso a Flota por la interfaz RegistrarUso (HU-02 → HU-04). */
     public Cierre finalizar(String codigoSesion) {
-        return uow.ejecutar(() -> {
+        return uow.ejecutarConReintentos(() -> {
             SesionPista sesion = sesion(codigoSesion);
             LocalDateTime ahora = LocalDateTime.now(reloj);
             List<UsoKart> usos = sesion.finalizar(ahora, parametros.longitudPistaMetros());

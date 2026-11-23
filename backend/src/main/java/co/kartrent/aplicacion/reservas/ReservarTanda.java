@@ -38,7 +38,7 @@ public class ReservarTanda {
     }
 
     public Reserva ejecutar(String documentoCliente, String codigoSesion, int cupos) {
-        return uow.ejecutar(() -> {
+        return uow.ejecutarConReintentos(() -> {
             Cliente cliente = clientes.buscar(documentoCliente)
                     .orElseThrow(() -> new RecursoNoEncontradoException("Cliente " + documentoCliente + " no registrado"));
             SesionPista sesion = sesiones.buscar(codigoSesion)
