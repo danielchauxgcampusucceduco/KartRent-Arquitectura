@@ -93,13 +93,25 @@ jobs:
   diagramas:
     name: Diagramas PlantUML (4+1)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Renderizar PNG y SVG
+      - name: Renderizar PNG y SVG (falla si algún diagrama tiene errores de sintaxis)
         run: |
-          docker run --rm -v "$PWD/diagramas:/data" -w /data plantuml/plantuml:latest -tpng -o /data/img plantuml/*.puml
-          docker run --rm -v "$PWD/diagramas:/data" -w /data plantuml/plantuml:latest -tsvg -o /data/img plantuml/*.puml
+          docker run --rm -v "$PWD/diagramas:/data" -w /data plantuml/plantuml:latest -failfast2 -tpng -o /data/img plantuml/*.puml
+          docker run --rm -v "$PWD/diagramas:/data" -w /data plantuml/plantuml:latest -failfast2 -tsvg -o /data/img plantuml/*.puml
       - uses: actions/upload-artifact@v4
         with:
           name: diagramas
           path: diagramas/img
+      - name: Publicar las imágenes en el repositorio
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "KartRent CI"
+          git config user.email "ci@kartrent.local"
+          git add diagramas/img
+          if git diff --cached --quiet; then echo "Imágenes sin cambios"; else
+            git commit -m "Imágenes de los diagramas generadas por la CI [skip ci]"
+            git push
+          fi
