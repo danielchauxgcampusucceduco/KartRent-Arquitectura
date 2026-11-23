@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { api, cronometro, type Clasificacion, type Sesion } from '../api'
-import { Titulo, Vacio } from '../componentes'
-import { useCarga } from '../useAsync'
+import { api, comoErrorApi, cronometro, type Clasificacion, type Sesion } from '../api'
+import { Aviso, FormularioAcceso, Titulo, Vacio } from '../componentes'
+import { useUsuario } from '../sesion'
+import { useAviso, useCarga } from '../useAsync'
 import { useTopico } from '../useEnVivo'
 
 type Empuje = Clasificacion & { ultimaVuelta?: { numeroKart: number; numeroVuelta: number; tiempoMs: number } }
@@ -9,6 +10,7 @@ type Empuje = Clasificacion & { ultimaVuelta?: { numeroKart: number; numeroVuelt
 /** HU-03 — Pantalla de tiempos en vivo por WebSocket + simulador del decodificador de transponders. */
 export default function EnVivo() {
   const { datos: sesiones } = useCarga(api.sesiones)
+  const { aviso, setAviso } = useAviso()
   const [codigo, setCodigo] = useState('')
   const [tabla, setTabla] = useState<Clasificacion | null>(null)
   const [destello, setDestello] = useState<number | null>(null)
@@ -21,8 +23,10 @@ export default function EnVivo() {
   }, [candidatas, codigo])
   useEffect(() => {
     if (!codigo) return
-    api.clasificacion(codigo).then(setTabla)
-    api.sesion(codigo).then(setSesion)
+    const falla = (e: unknown) => { const x = comoErrorApi(e); setAviso({ tipo: 'error', titulo: x.titulo, texto: x.message }) }
+    api.clasificacion(codigo).then(setTabla).catch(falla)
+    api.sesion(codigo).then(setSesion).catch(falla)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codigo])
   useEffect(() => {
     if (!mensaje) return
@@ -46,6 +50,8 @@ export default function EnVivo() {
           </select>
         </div>
       </Titulo>
+
+      <Aviso aviso={aviso} cerrar={() => setAviso(null)} />
 
       {!tabla || tabla.clasificacion.length === 0 ? <Vacio>Inicia una tanda en Boxes para ver la clasificación.</Vacio> : (
         <table className="tiempos">
@@ -75,9 +81,16 @@ export default function EnVivo() {
 function Simulador({ sesion }: { sesion: Sesion }) {
   const [log, setLog] = useState<string[]>([])
   const [auto, setAuto] = useState(false)
+  const usuario = useUsuario()
   const paso = async (tr: string, kart: number) => {
-    const r = await api.paso(tr).catch(e => ({ vueltaRegistrada: false, vuelta: null, error: (e as Error).message }))
-    const linea = r.vueltaRegistrada && r.vuelta ? `Kart ${kart}: vuelta ${r.vuelta.numeroVuelta} en ${cronometro(r.vuelta.tiempoMs)}` : `Kart ${kart}: paso por meta (sin vuelta válida)`
+    let linea: string
+    try {
+      const r = await api.paso(tr)
+      linea = r.vueltaRegistrada && r.vuelta ? `Kart ${kart}: vuelta ${r.vuelta.numeroVuelta} en ${cronometro(r.vuelta.tiempoMs)}` : `Kart ${kart}: paso por meta (sin vuelta válida)`
+    } catch (e) {
+      linea = `Kart ${kart}: ${comoErrorApi(e).message}`
+      setAuto(false)
+    }
     setLog(l => [linea, ...l].slice(0, 8))
   }
   useEffect(() => {
@@ -90,6 +103,7 @@ function Simulador({ sesion }: { sesion: Sesion }) {
     return () => timers.forEach(clearInterval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auto, sesion])
+  if (!usuario) return <FormularioAcceso rol="Cronometraje" ayuda="El decodificador de meta envía los pasos con el usuario cronometraje (o admin)." />
   return (
     <div className="panel simulador">
       <h2>Decodificador de meta (simulador)</h2>

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { api, fecha, hora, type Orden, type Parrilla } from '../api'
-import { Aviso, Estado, Titulo, Vacio } from '../componentes'
+import { api, comoErrorApi, fecha, hora, type Orden, type Parrilla } from '../api'
+import { Aviso, Carga, Estado, Titulo, Vacio } from '../componentes'
 import { useAviso, useCarga } from '../useAsync'
 
 /** HU-02 — El jefe de boxes asigna karts disponibles a los pilotos confirmados, inicia y finaliza la tanda. */
 export default function Boxes() {
-  const { datos: sesiones, recargar: recargarSesiones } = useCarga(api.sesiones)
+  const cargaSesiones = useCarga(api.sesiones)
+  const { datos: sesiones, recargar: recargarSesiones } = cargaSesiones
   const { aviso, setAviso, ejecutar } = useAviso()
   const [codigo, setCodigo] = useState<string>('')
   const [parrilla, setParrilla] = useState<Parrilla | null>(null)
@@ -17,15 +18,21 @@ export default function Boxes() {
     if (!codigo && activas.length) setCodigo((activas.find(s => s.cuposVendidos > 0) ?? activas[0]).codigo)
   }, [activas, codigo])
 
-  const cargar = () => { if (codigo) api.parrilla(codigo).then(setParrilla).catch(e => setAviso({ tipo: 'error', texto: e.message })) }
+  const cargar = () => {
+    if (!codigo) return
+    api.parrilla(codigo).then(setParrilla).catch(e => { const x = comoErrorApi(e); setAviso({ tipo: 'error', titulo: x.titulo, texto: x.message }) })
+  }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(cargar, [codigo])
 
   const asignar = async (codigoReserva: string, documento: string) => {
     const kart = kartElegido[codigoReserva]
-    if (!kart) return setAviso({ tipo: 'error', texto: 'Elige un kart' })
+    if (!kart) return setAviso({ tipo: 'error', titulo: 'Datos o regla de negocio', texto: 'Elige un kart' })
     const r = await ejecutar(() => api.asignar(codigo, codigoReserva, documento, kart), a => `Kart ${a.numeroKart} → parrilla ${a.numeroParrilla} (transponder ${a.codigoTransponder})`)
     if (r) cargar()
+  }
+  const retirar = async (numeroKart: number) => {
+    if (await ejecutar(() => api.retirarKart(codigo, numeroKart), () => `Kart ${numeroKart} retirado de la parrilla.`)) { cargar(); recargarSesiones() }
   }
   const iniciar = async () => { if (await ejecutar(() => api.iniciar(codigo), () => '¡Bandera verde! La tanda está en pista.')) { cargar(); recargarSesiones() } }
   const finalizar = async () => {
@@ -43,7 +50,7 @@ export default function Boxes() {
       </Titulo>
       <Aviso aviso={aviso} cerrar={() => setAviso(null)} />
 
-      {!s ? <Vacio>Selecciona una tanda.</Vacio> : (
+      <Carga carga={cargaSesiones}>{() => !s ? <Vacio>Selecciona una tanda.</Vacio> : (
         <>
           <div className="tablero">
             <div><small>Estado</small><Estado valor={s.estado} /></div>
@@ -82,6 +89,7 @@ export default function Boxes() {
                       <span className="pos">P{a.numeroParrilla}</span>
                       <span className="numero-kart">{a.numeroKart}</span>
                       <span>{a.nombrePiloto}<small className="mono">{a.codigoTransponder}</small></span>
+                      {s.estado === 'EN_PARRILLA' && <button className="secundario chico" onClick={() => retirar(a.numeroKart)} aria-label={`Retirar kart ${a.numeroKart}`}>Retirar</button>}
                     </li>
                   ))}
                 </ol>
@@ -96,7 +104,7 @@ export default function Boxes() {
             </div>
           )}
         </>
-      )}
+      )}</Carga>
     </section>
   )
 }

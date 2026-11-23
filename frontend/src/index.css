@@ -159,3 +159,14 @@ button.peligro { background: var(--rojo); color: white; }
   .tiempos { font-size: .9rem; }
   .tiempos td, .tiempos th { padding: .5rem; }
 }
+
+/* Estados de carga, errores recuperables y acceso por rol */
+.cargando { color: var(--gris, #8a8f98); padding: .75rem 0 }
+.error-carga { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding: .75rem 1rem; margin: .5rem 0; border: 1px solid #c0392b; border-radius: 8px; background: rgba(192, 57, 43, .12) }
+.error-carga strong { flex: 0 0 auto }
+.error-carga span { flex: 1 1 12rem }
+.acceso { max-width: 26rem; display: grid; gap: .6rem; margin: 2rem auto }
+.sesion { display: flex; align-items: center; gap: .6rem; font-size: .85rem }
+button.chico { padding: .15rem .5rem; font-size: .75rem; margin-left: .5rem }
+button.enlace { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer }
+.e-reembolsada { background: rgba(138, 143, 152, .25); color: inherit }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api, fecha, type Orden } from '../api'
-import { Aviso, Estado, Titulo, Vacio } from '../componentes'
+import { Aviso, Carga, Estado, Titulo } from '../componentes'
+import { useUsuario } from '../sesion'
 import { useAviso, useCarga } from '../useAsync'
 
 /** HU-04 — Mantenimiento preventivo: estado de la flota, órdenes y cierre por el mecánico asignado. */
@@ -10,6 +11,7 @@ export default function Taller() {
   const mecanicos = useCarga(api.mecanicos)
   const umbral = useCarga(api.umbral)
   const { aviso, setAviso, ejecutar } = useAviso()
+  const esAdmin = useUsuario() === 'admin'
   const [mecanico, setMecanico] = useState<Record<string, string>>({})
   const [obs, setObs] = useState<Record<string, string>>({})
 
@@ -29,8 +31,8 @@ export default function Taller() {
       </Titulo>
       <Aviso aviso={aviso} cerrar={() => setAviso(null)} />
 
-      <div className="flota">
-        {karts.datos?.map(k => (
+      <Carga carga={karts} vacio="No hay karts registrados.">{lista => <div className="flota">
+        {lista.map(k => (
           <div key={k.numero} className={`kart-tarjeta k-${k.estado.toLowerCase()}`}>
             <div className="fila-espacio"><span className="numero-kart">{k.numero}</span><Estado valor={k.estado} /></div>
             <small>{k.tipo} · {k.codigoTransponder}</small>
@@ -40,15 +42,14 @@ export default function Taller() {
             <small className="mono">{k.horasDesdeServicio.toFixed(1)} / {limite} h · {k.horasMotor.toFixed(0)} h motor</small>
           </div>
         ))}
-      </div>
+      </div>}</Carga>
 
       <div className="panel">
         <h2>Órdenes de mantenimiento</h2>
-        {ordenes.datos?.length === 0 && <Vacio>Sin órdenes.</Vacio>}
-        <table className="tabla">
+        <Carga carga={ordenes} vacio="Sin órdenes.">{lista => <table className="tabla">
           <thead><tr><th>Orden</th><th>Kart</th><th>Apertura</th><th>Estado</th><th>Mecánico</th><th>Acción</th></tr></thead>
           <tbody>
-            {ordenes.datos?.map(o => (
+            {lista.map(o => (
               <tr key={o.numero}>
                 <td className="mono">{o.numero}</td>
                 <td><span className="numero-kart chico">{o.numeroKart}</span></td>
@@ -63,7 +64,7 @@ export default function Taller() {
                   )}
                 </td>
                 <td>
-                  {o.estado === 'ABIERTA' && <button onClick={() => asignar(o)}>Asignar</button>}
+                  {o.estado === 'ABIERTA' && <button onClick={() => asignar(o)} disabled={!esAdmin} title={esAdmin ? undefined : 'Solo el administrador asigna órdenes'}>Asignar</button>}
                   {o.estado === 'EN_PROCESO' && (
                     <div className="fila">
                       <input placeholder="Trabajo realizado" value={obs[o.numero] ?? ''} onChange={e => setObs({ ...obs, [o.numero]: e.target.value })} />
@@ -75,7 +76,7 @@ export default function Taller() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table>}</Carga>
         <p className="nota">RN-10: solo el mecánico asignado puede cerrar la orden. RN-11: un kart no tiene dos órdenes abiertas.</p>
       </div>
     </section>

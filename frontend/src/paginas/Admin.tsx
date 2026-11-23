@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api, hora, fecha, pesos } from '../api'
-import { Aviso, Titulo } from '../componentes'
+import { Aviso, Carga, Titulo } from '../componentes'
 import { useAviso, useCarga } from '../useAsync'
 
 const hoyIso = () => new Date().toISOString().slice(0, 10)
@@ -14,7 +14,11 @@ export default function Admin() {
   const reporte = useCarga(() => api.reporte(rango.desde, rango.hasta), [rango.desde, rango.hasta])
   const [tarifa, setTarifa] = useState({ tipoKart: 'ADULTO', valor: 45000 })
   const [tanda, setTanda] = useState({ codigo: '', inicio: `${hoyIso()}T20:30`, duracionMinutos: 10, cupos: 8, tipoKart: 'ADULTO' })
-  const [umbral, setUmbral] = useState(20)
+  const umbralActual = useCarga(api.umbral)
+  const [umbralEditado, setUmbral] = useState<number | null>(null)
+  const umbral = umbralEditado ?? umbralActual.datos?.horas ?? 20
+  const sesiones = useCarga(api.sesiones)
+  const [aCancelar, setACancelar] = useState('')
 
   const r = reporte.datos
   return (
@@ -32,7 +36,7 @@ export default function Admin() {
       <div className="rejilla tres">
         <div className="panel">
           <h2>Tarifas</h2>
-          <ul className="lista">{tarifas.datos?.map((t, i) => <li key={i}><b>{t.tipoKart}</b> {pesos(t.valorPorCupo)} <small>desde {t.vigenteDesde}</small></li>)}</ul>
+          <Carga carga={tarifas} vacio="Sin tarifas registradas.">{lista => <ul className="lista">{lista.map((t, i) => <li key={i}><b>{t.tipoKart}</b> {pesos(t.valorPorCupo)} <small>desde {t.vigenteDesde}</small></li>)}</ul>}</Carga>
           <div className="fila">
             <select value={tarifa.tipoKart} onChange={e => setTarifa({ ...tarifa, tipoKart: e.target.value })}><option>ADULTO</option><option>INFANTIL</option></select>
             <input type="number" value={tarifa.valor} onChange={e => setTarifa({ ...tarifa, valor: Number(e.target.value) })} />
@@ -57,9 +61,23 @@ export default function Admin() {
           <p className="nota">Horas de motor desde el último servicio que disparan la orden preventiva (RN-09).</p>
           <div className="fila">
             <input type="number" step="0.5" value={umbral} onChange={e => setUmbral(Number(e.target.value))} />
-            <button onClick={() => ejecutar(() => api.actualizarUmbral(umbral), u => `Umbral actualizado a ${u.horas} h`)}>Aplicar</button>
+            <button onClick={async () => { if (await ejecutar(() => api.actualizarUmbral(umbral), u => `Umbral actualizado a ${u.horas} h`)) setUmbral(null); umbralActual.recargar() }}>Aplicar</button>
           </div>
         </div>
+      </div>
+
+      <div className="panel">
+        <h2>Cancelar tanda</h2>
+        <p className="nota">Solo tandas que no han iniciado. Se cancelan las reservas pendientes y se reembolsan las pagadas.</p>
+        <Carga carga={sesiones}>{lista => (
+          <div className="fila">
+            <select value={aCancelar} onChange={e => setACancelar(e.target.value)} aria-label="Tanda a cancelar">
+              <option value="">Elegir tanda…</option>
+              {lista.filter(s => s.estado === 'PROGRAMADA' || s.estado === 'EN_PARRILLA').map(s => <option key={s.codigo} value={s.codigo}>{s.codigo} · {fecha(s.horaInicio)} {hora(s.horaInicio)}</option>)}
+            </select>
+            <button className="peligro" disabled={!aCancelar} onClick={async () => { if (await ejecutar(() => api.cancelarTanda(aCancelar), s => `Tanda ${s.codigo} cancelada`)) { setACancelar(''); sesiones.recargar(); reporte.recargar() } }}>Cancelar tanda</button>
+          </div>
+        )}</Carga>
       </div>
 
       <div className="panel">
@@ -70,14 +88,14 @@ export default function Admin() {
             <input type="date" value={rango.hasta} onChange={e => setRango({ ...rango, hasta: e.target.value })} />
           </div>
         </div>
-        <div className="barras">
-          {r?.tandas.map(t => (
+        <Carga carga={reporte}>{rep => <div className="barras">
+          {rep.tandas.map(t => (
             <div key={t.codigoSesion} className="barra" title={`${t.codigoSesion}: ${t.cuposVendidos}/${t.cuposOfrecidos} · ${pesos(t.ingresos)}`}>
               <i style={{ height: `${Math.max(2, t.ocupacionPorcentaje)}%` }} className={t.tipoKart === 'INFANTIL' ? 'infantil' : ''} />
               <small>{fecha(t.inicio).split(' ')[0]} {hora(t.inicio)}</small>
             </div>
           ))}
-        </div>
+        </div>}</Carga>
       </div>
     </section>
   )

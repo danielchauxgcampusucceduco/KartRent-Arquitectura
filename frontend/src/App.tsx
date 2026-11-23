@@ -4,6 +4,7 @@ import Boxes from './paginas/Boxes'
 import EnVivo from './paginas/EnVivo'
 import Taller from './paginas/Taller'
 import Admin from './paginas/Admin'
+import { BarraSesion, Protegida } from './componentes'
 
 const secciones = [
   { ruta: '/reservar', hu: 'HU-01', nombre: 'Reservar', rol: 'Piloto' },
@@ -32,15 +33,16 @@ export default function App() {
             </NavLink>
           ))}
         </nav>
+        <BarraSesion />
       </header>
       <main>
         <Routes>
           <Route path="/" element={<Navigate to="/reservar" replace />} />
           <Route path="/reservar" element={<Piloto />} />
-          <Route path="/boxes" element={<Boxes />} />
+          <Route path="/boxes" element={<Protegida rol="Jefe de boxes" ayuda="Usuario boxes (o admin)."><Boxes /></Protegida>} />
           <Route path="/en-vivo" element={<EnVivo />} />
-          <Route path="/taller" element={<Taller />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/taller" element={<Protegida rol="Taller" ayuda="Mecánico: tu código de empleado (p. ej. M-01); también boxes o admin."><Taller /></Protegida>} />
+          <Route path="/admin" element={<Protegida rol="Administrador" ayuda="Usuario admin."><Admin /></Protegida>} />
         </Routes>
       </main>
       <footer>
