@@ -67,7 +67,7 @@ Las fuentes PlantUML están en [`diagramas/plantuml`](diagramas/plantuml). La CI
 | Contexto | `01_contexto.puml` | Actores y sistemas externos, con cada flujo etiquetado con su HU |
 | Funcional | `02_funcional.puml` | Cinco componentes, interfaces provistas (`<<service>>`/`<<management>>`) y requeridas, y adaptadores externos |
 | Lógica | `03_logica.puml` | Modelo de dominio con estereotipos GRASP, igual que el código en `co.kartrent.dominio` |
-| Desarrollo | `04_desarrollo.puml` | Paquetes de arquitectura limpia; las dependencias apuntan al núcleo |
+| Desarrollo | `04_desarrollo.puml` | Clases de implementación: controladores → casos de uso → puertos ← adaptadores |
 | Despliegue | `05_despliegue.puml` | Contenedores nginx, Spring Boot y PostgreSQL, decodificador de meta y pasarela |
 
 ### Diagramas en Visual Paradigm
@@ -89,8 +89,8 @@ Clases del paquete `co.kartrent.dominio` con atributos, operaciones, herencias y
 
 ![Vista lógica](diagramas/img/03_logica.png)
 
-#### 4. Vista de desarrollo (paquetes)
-Capas de la arquitectura limpia, sus subpaquetes y las dependencias, que siempre apuntan hacia el dominio.
+#### 4. Vista de desarrollo (clases de implementación)
+Clases reales del código y cómo se conectan: `ClienteHttp` (frontend) llama por HTTP/JSON a los controladores REST (cada uno con su `rutaBase`); los controladores invocan los casos de uso (`ReservarTanda`, `PagarReserva`, `ControlarSesion`, `RegistrarPaso`, `GestionarOrdenes`, `ConfigurarOperacion`); los casos de uso dependen solo de puertos `<<Interface>>` (`RepositorioReservas`, `RepositorioSesiones`, `RepositorioKarts`, `RepositorioOrdenes`, `PasarelaPagos`, `PublicadorEventos`), y los adaptadores de infraestructura (`Repositorio*Jdbc`, `PasarelaPagosSimulada`) **implementan** esos puertos. `KartRentApplication` arranca `ConfiguracionCasosDeUso`, que crea los casos de uso (inyección de dependencias). Así las dependencias siempre apuntan hacia el núcleo.
 
 ![Vista de desarrollo](diagramas/img/04_desarrollo.png)
 
