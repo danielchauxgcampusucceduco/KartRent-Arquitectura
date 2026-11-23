@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /** HU-02 (boxes y parrilla) y HU-03 (cronometraje en vivo). */
@@ -90,7 +91,8 @@ public class PistaController {
     @PostMapping("/telemetria/pasos")
     @Operation(summary = "Paso de un transponder por la línea de meta. Vueltas < 25 s se descartan (RN-07)")
     public PasoDto paso(@Valid @RequestBody PasoTransponder p) {
-        Instant marca = p.marcaTiempo() == null ? reloj.instant() : p.marcaTiempo();
+        // Precisión de milisegundos: es la que conserva la base de datos y la del decodificador.
+        Instant marca = (p.marcaTiempo() == null ? reloj.instant() : p.marcaTiempo()).truncatedTo(ChronoUnit.MILLIS);
         var v = registrarPaso.ejecutar(p.codigoTransponder(), marca);
         return new PasoDto(v.isPresent(), v.orElse(null));
     }
