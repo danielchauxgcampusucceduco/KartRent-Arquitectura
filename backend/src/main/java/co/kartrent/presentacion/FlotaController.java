@@ -7,6 +7,8 @@ import co.kartrent.presentacion.Dtos.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -61,7 +63,11 @@ public class FlotaController {
 
     @PostMapping("/ordenes/{numero}/cierre")
     @Operation(summary = "Cerrar la orden; solo el mecánico asignado (RN-10). El kart vuelve a DISPONIBLE")
-    public OrdenDto cerrar(@PathVariable String numero, @Valid @RequestBody CerrarOrden c) {
+    public OrdenDto cerrar(@PathVariable String numero, @Valid @RequestBody CerrarOrden c, Authentication quien) {
+        boolean esAdministrador = quien.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (!esAdministrador && !quien.getName().equals(c.codigoMecanico())) {
+            throw new AccessDeniedException("Un mecánico solo cierra órdenes en su propio nombre");
+        }
         return OrdenDto.de(ordenes.cerrar(numero, c.codigoMecanico(), c.observaciones()));
     }
 }

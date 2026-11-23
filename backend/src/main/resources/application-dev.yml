@@ -1,0 +1,10 @@
+# Perfil de desarrollo local: SPRING_PROFILES_ACTIVE=dev
+# Estos valores son solo para correr en el computador propio; en cualquier otro entorno se definen por variables de
+# entorno (WEBHOOK_SECRET, ADMIN_PASSWORD, BOXES_PASSWORD, CRONOMETRAJE_PASSWORD, MECANICO_PASSWORD).
+kartrent:
+  webhook-secreto: dev-secreto-webhook-local
+  seguridad:
+    admin-password: dev-admin-local
+    boxes-password: dev-boxes-local
+    cronometraje-password: dev-cronometraje-local
+    mecanico-password: dev-mecanico-local

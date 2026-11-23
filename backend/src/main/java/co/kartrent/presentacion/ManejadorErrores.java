@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -46,6 +47,12 @@ public class ManejadorErrores {
     @ExceptionHandler(NoAutorizadoException.class)
     ProblemDetail noAutorizado(NoAutorizadoException e) {
         return problema(HttpStatus.UNAUTHORIZED, "No autorizado", e.getMessage());
+    }
+
+    /** Un rol correcto pero sin permiso sobre ese recurso (por ejemplo, un mecánico cerrando la orden de otro). */
+    @ExceptionHandler(AccessDeniedException.class)
+    ProblemDetail prohibido(AccessDeniedException e) {
+        return problema(HttpStatus.FORBIDDEN, "Acceso denegado", e.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -87,6 +87,10 @@ public class ReservasController {
                     + "la reserva sigue PENDIENTE_PAGO y se puede reintentar (con otra Idempotency-Key, o sin clave). 200 "
                     + "cuando la clave ya se había usado (no se cobra de nuevo). 409 si la reserva ya no está pendiente, la "
                     + "retención expiró o la clave pertenece a otra reserva.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201",
+            description = "Intento de pago registrado (aprobado o rechazado)")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+            description = "Idempotency-Key repetida: se devuelve el resultado anterior sin cobrar de nuevo")
     public ResponseEntity<PagoDto> pagar(@PathVariable UUID codigo, @Valid @RequestBody NuevoPago p,
                                          @RequestHeader(name = "Idempotency-Key", required = false) String clave) {
         var r = pagarReserva.ejecutar(codigo, p.metodo(), clave);
@@ -100,7 +104,12 @@ public class ReservasController {
 
     @PostMapping("/pagos/webhook")
     @Operation(summary = "Confirmación asíncrona de la pasarela, firmada con HMAC-SHA256 (X-Firma)",
-            description = "401 si la firma no coincide; 400 si el cuerpo no es un JSON válido; 404 si la referencia no existe.")
+            description = "Aprobación tardía: si la reserva ya expiró o se canceló, el cobro se reembolsa y el pago "
+                    + "queda con reembolsado=true.")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Notificación procesada")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "La firma X-Firma no coincide")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "La referencia de pago no existe")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "El cuerpo no es un JSON válido")
     public PagoDto webhook(@RequestBody String cuerpo, @RequestHeader(name = "X-Firma", required = false) String firma) {
         return aDto(pagarReserva.procesarWebhook(cuerpo, firma));
     }

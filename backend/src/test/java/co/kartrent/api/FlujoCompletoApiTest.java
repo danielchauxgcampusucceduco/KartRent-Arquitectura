@@ -37,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest(properties = "kartrent.demo=false")
 @AutoConfigureMockMvc
+@org.springframework.security.test.context.support.WithMockUser(username = "admin", roles = "ADMIN")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class FlujoCompletoApiTest {
     @Autowired

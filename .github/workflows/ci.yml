@@ -19,12 +19,20 @@ jobs:
           java-version: 21
           cache: maven
       - run: mvn -B verify
+      - name: Resumen de cobertura (JaCoCo)
+        run: |
+          awk -F, 'NR>1 {c+=$9; m+=$8} END {printf "Cobertura de lineas: %.1f%% (%d de %d)\n", 100*c/(c+m), c, c+m}' target/site/jacoco/jacoco.csv | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Reporte Cucumber
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: reporte-cucumber
           path: backend/target/cucumber.html
+      - name: Informe de cobertura
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-jacoco
+          path: backend/target/site/jacoco
 
   postgres:
     name: Migraciones sobre PostgreSQL 16
@@ -76,6 +84,8 @@ jobs:
     needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
+      - name: Variables de ejemplo para construir las imágenes
+        run: cp .env.example .env
       - run: docker compose build
 
   diagramas:

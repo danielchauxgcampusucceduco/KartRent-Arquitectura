@@ -15,6 +15,9 @@ public class VerificadorFirmaWebhook {
     private final byte[] secreto;
 
     public VerificadorFirmaWebhook(@Value("${kartrent.webhook-secreto}") String secreto) {
+        if (secreto == null || secreto.length() < 16) {
+            throw new IllegalStateException("kartrent.webhook-secreto (WEBHOOK_SECRET) debe tener al menos 16 caracteres");
+        }
         this.secreto = secreto.getBytes(StandardCharsets.UTF_8);
     }
 

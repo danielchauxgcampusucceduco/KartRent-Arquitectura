@@ -28,5 +28,11 @@ springdoc:
 kartrent:
   zona-horaria: America/Bogota
   cors-origenes: ${CORS_ORIGINS:http://localhost:5173,http://localhost:3000}
-  webhook-secreto: ${WEBHOOK_SECRET:cambia-este-secreto}
+  # Sin valor por defecto: la aplicación no arranca si no se definen (perfil "dev" para desarrollo local).
+  webhook-secreto: ${WEBHOOK_SECRET}
   expiracion-ms: 60000
+  seguridad:
+    admin-password: ${ADMIN_PASSWORD}
+    boxes-password: ${BOXES_PASSWORD}
+    cronometraje-password: ${CRONOMETRAJE_PASSWORD}
+    mecanico-password: ${MECANICO_PASSWORD}

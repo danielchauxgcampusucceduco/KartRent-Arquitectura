@@ -21,7 +21,12 @@ services:
       DB_USER: kartrent
       DB_PASSWORD: kartrent
       CORS_ORIGINS: http://localhost:3000
-      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-cambia-este-secreto}
+      # Sin valores por defecto: se definen en un archivo .env (ver .env.example).
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:?defina WEBHOOK_SECRET en .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?defina ADMIN_PASSWORD en .env}
+      BOXES_PASSWORD: ${BOXES_PASSWORD:?defina BOXES_PASSWORD en .env}
+      CRONOMETRAJE_PASSWORD: ${CRONOMETRAJE_PASSWORD:?defina CRONOMETRAJE_PASSWORD en .env}
+      MECANICO_PASSWORD: ${MECANICO_PASSWORD:?defina MECANICO_PASSWORD en .env}
     depends_on:
       db:
         condition: service_healthy
