@@ -18,9 +18,10 @@ package "frontend (React + TypeScript)" <<web>> as FE {
     [Boxes HU-02]
     [EnVivo HU-03]
     [Taller HU-04]
-    [Admin HU-05]
+    [Admin HU-05A/B]
   }
   [api.ts] as FE_API
+  [sesion.ts (HTTP Basic en memoria)] as FE_SES
   [useEnVivo.ts (STOMP)] as FE_WS
 }
 
@@ -33,11 +34,19 @@ package "co.kartrent.presentacion" <<web>> as PRES {
   [ManejadorErrores]
 }
 
+package "co.kartrent.infraestructura.seguridad" <<web>> as SEG {
+  [ConfiguracionSeguridad]
+  [UsuariosKartRent]
+}
+
 package "co.kartrent.aplicacion" <<casos>> as APP {
   package "reservas" as A_RES {
     [RegistrarCliente]
     [ReservarTanda]
     [PagarReserva]
+    [CancelarReserva]
+    [Reembolsos]
+    [ConsultarReservas]
     [ExpirarReservas]
   }
   package "pista" as A_PIS {
@@ -47,9 +56,11 @@ package "co.kartrent.aplicacion" <<casos>> as APP {
   package "flota" as A_FLO {
     [RegistrarUso]
     [GestionarOrdenes]
+    [ConsultarFlota]
   }
   package "administracion" as A_ADM {
     [ConfigurarOperacion]
+    [CancelarTanda]
     [ReporteOcupacion]
   }
   package "puertos" as PUERTOS {
@@ -95,9 +106,11 @@ package "co.kartrent.infraestructura" <<adaptadores>> as INF {
   }
 }
 
-database "db/migration\n(Flyway V1, V2)" as SQL
+database "db/migration + db/vendor\n(Flyway V1 a V5)" as SQL
 
 FE_API ..> PRES : HTTP/JSON /api/v1
+FE_SES ..> FE_API : cabecera Authorization
+SEG ..> PRES : autentica y autoriza por rol
 FE_WS ..> I_MSJ : WebSocket /ws
 
 PRES ..> APP : invoca casos de uso

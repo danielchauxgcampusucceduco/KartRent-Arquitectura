@@ -1,0 +1,67 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceMessageAlign center
+title Secuencia - POST /api/v1/reservas/{codigo}/pagos (HU-01): 201 aprobado, 201 rechazado, 200 repetición, 404 y 409
+
+actor "Piloto" as P
+participant "Piloto.tsx\n(api.pagar)" as UI
+participant "ReservasController\npagar()" as C
+participant "PagarReserva\nejecutar()" as UC
+participant "UnidadDeTrabajo" as UOW
+participant "Reserva" as RES
+participant "PasarelaPagos\ncobrar()" as G
+participant "Reembolsos\ndevolver()" as RE
+participant "ManejadorErrores" as E
+
+P -> UI : Pagar con tarjeta
+UI -> C : POST …/pagos {metodo}\nIdempotency-Key: <UUID nuevo por intento>
+C -> UC : ejecutar(codigoReserva, metodo, clave)
+
+group Fase 1 · validar (transacción corta)
+  UC -> UOW : ejecutar(preparar)
+  alt la reserva no existe
+    UOW --> E : RecursoNoEncontradoException
+    E --> UI : 404
+  else clave ya usada en otra reserva
+    UOW --> E : ConflictoException
+    E --> UI : 409
+  else clave explícita ya registrada
+    UOW --> UC : Resultado(repeticion = true)
+    UC --> C : sin cobrar de nuevo
+    C --> UI : 200 PagoDto (resultado anterior)
+  else
+    UOW -> RES : verificarPagable(ahora)
+    alt no está PENDIENTE_PAGO o la retención expiró
+      RES --> E : ConflictoException
+      E --> UI : 409 "La retención de cupos expiró…"
+    end
+  end
+end
+
+group Fase 2 · cobro (fuera de la transacción)
+  UC -> G : cobrar(referencia, monto, metodo)
+  G --> UC : ResultadoPago(aprobado)
+end
+
+group Fase 3 · registrar (transacción con reintentos)
+  UC -> UOW : ejecutarConReintentos(registrar)
+  UOW -> RES : registrarPago(referencia, metodo, aprobado, ahora)
+  alt pago rechazado
+    RES --> UC : Pago(aprobado = false), reserva sigue PENDIENTE_PAGO
+    UC --> C : Resultado sin factura
+    C --> UI : 201 PagoDto {pago.aprobado = false}
+    UI --> P : "Pago rechazado": puede reintentar
+  else pago aprobado y la reserva sigue pagable
+    RES -> RES : confirmar(pago) → CONFIRMADA
+    UC --> C : Resultado con Factura.emitir(...)
+    C --> UI : 201 PagoDto {pago.aprobado = true, factura}
+    UI --> P : factura y CUFE
+  else aprobado pero la reserva ya no se puede confirmar
+    UOW --> UC : cobroSinServicio
+    UC -> RE : devolver(pagos) · reembolsar en la pasarela
+    UC --> E : ConflictoException("…el cobro fue reembolsado")
+    E --> UI : 409
+  end
+end
+@enduml

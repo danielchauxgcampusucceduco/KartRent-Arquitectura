@@ -1,50 +1,59 @@
 @startuml
 skinparam shadowing false
 skinparam defaultFontName Arial
-title Vista de despliegue - Topología física de KartRent (docker-compose)
+title Vista de despliegue - Topología de KartRent (docker compose)
 
-node "<<device>>\nSmartphone / PC del piloto" as DCLI #E3EEFF {
-  node "<<executionEnvironment>>\nNavegador web" as NAV #FFFFFF {
-    artifact "kartrent-web (SPA React)" as A_WEB #0FA394
+' Los nombres usan «guillemets» para que PlantUML no los interprete como estereotipos propios.
+node "«device»\nSmartphone o PC del piloto" as DCLI #E3EEFF {
+  node "«executionEnvironment»\nNavegador web" as NAV #FFFFFF {
+    artifact "SPA React\n(dist/ servida por nginx)" as A_WEB #0FA394
   }
 }
-node "<<device>>\nTablet de boxes y taller" as DTAB #E3EEFF {
-  node "<<executionEnvironment>>\nNavegador web" as NAV2 #FFFFFF {
-    artifact "kartrent-web\n(Boxes / Taller)" as A_WEB2 #0FA394
+node "«device»\nTablet de boxes y taller" as DTAB #E3EEFF {
+  node "«executionEnvironment»\nNavegador web" as NAV2 #FFFFFF {
+    artifact "SPA React\n(Boxes, Taller)" as A_WEB2 #0FA394
   }
 }
-node "<<device>>\nPantalla de tiempos (sala)" as DTV #E3EEFF {
-  artifact "kartrent-web /en-vivo\n(modo kiosco)" as A_TV #0FA394
-}
-
-node "<<node>>\nServidor Linux (Docker Engine)" as SRV #ECE8FF {
-  node "<<container>>\nfrontend · nginx:1.27" as C_FE #FFFFFF {
-    artifact "dist/ (SPA)" as A_DIST #0FA394
-    artifact "nginx.conf\nproxy /api · /ws" as A_NGX #0FA394
-  }
-  node "<<container>>\nbackend · JRE 21" as C_BE #DCD6FF {
-    artifact "kartrent-backend.jar\nSpring Boot 3 · REST + STOMP" as A_API #0FA394
-  }
-  node "<<container>>\ndb · postgres:16" as C_DB #DFF5F0 {
-    database "kartrent\n(Flyway V1, V2)" as A_DB
+node "«device»\nPantalla de tiempos (sala)" as DTV #E3EEFF {
+  node "«executionEnvironment»\nNavegador web" as NAV3 #FFFFFF {
+    artifact "SPA React /en-vivo" as A_TV #0FA394
   }
 }
 
-node "<<device>>\nDecodificador de cronometraje" as DDEC #FFF4D6 {
-  artifact "firmware-decoder" as A_FW #0FA394
+node "«device»\nServidor Linux" as SRV #ECE8FF {
+  node "«executionEnvironment»\nDocker Engine · docker compose" as DOCKER #F7F4FF {
+    node "«executionEnvironment»\nContenedor frontend · nginx 1.27" as C_FE #FFFFFF {
+      artifact "dist/ (SPA)" as A_DIST #0FA394
+      artifact "nginx.conf\nproxy /api, /ws, /swagger-ui,\n/v3/api-docs, /actuator/health" as A_NGX #0FA394
+    }
+    node "«executionEnvironment»\nContenedor backend · JRE 21" as C_BE #DCD6FF {
+      artifact "kartrent-backend.jar\nSpring Boot 3.3 · REST + STOMP" as A_API #0FA394
+    }
+    node "«executionEnvironment»\nContenedor db · PostgreSQL 16" as C_DB #DFF5F0 {
+      database "kartrent\n(Flyway V1 a V5)" as A_DB
+    }
+  }
 }
-node "<<device>>\nBucle magnético de meta" as DLOOP #FFF4D6
-node "<<device>>\nTransponder (en cada kart)" as DTRP #FFF4D6
-node "<<sistema externo>>\nPasarela de pagos\n(Wompi / PayU)" as DPAS #F2F2F2
 
-DCLI --> C_FE : HTTPS :3000/443
-DTAB --> C_FE : HTTPS (Wi-Fi boxes)
-DTV --> C_FE : WSS /ws
-C_FE --> C_BE : HTTP :8080 · WebSocket (red interna)
-C_BE --> C_DB : JDBC :5432
-DDEC --> C_BE : HTTP POST /api/v1/telemetria/pasos
-DLOOP --> DDEC : cable coaxial
-DTRP --> DLOOP : RF por inducción
-DPAS --> C_BE : webhook firmado HMAC-SHA256
-C_BE --> DPAS : HTTPS :443 cobro
+node "«device»\nDecodificador de meta\n(escenario hipotético)" as DDEC #FFF4D6 {
+  artifact "envío de pasos\ndel transponder" as A_FW #0FA394
+}
+node "«sistema externo»\nPasarela de pagos real\n(escenario hipotético: Wompi o PayU)" as DPAS #F2F2F2
+
+DCLI --> C_FE : HTTP :3000 → :80
+DTAB --> C_FE : HTTP :3000 → :80
+DTV --> C_FE : HTTP :3000 → :80\nWebSocket /ws (ws://)
+C_FE --> C_BE : HTTP :8080\n(/api/v1, /ws con Upgrade)
+C_BE --> C_DB : JDBC / TCP :5432
+DDEC ..> C_FE : HTTP POST /api/v1/telemetria/pasos\n(usuario cronometraje)
+C_BE ..> DPAS : HTTPS cobro y reembolso
+DPAS ..> C_BE : webhook HMAC-SHA256 (X-Firma)
+
+note bottom of C_BE
+  En esta entrega la pasarela es PasarelaPagosSimulada,
+  una clase dentro del backend: no sale ninguna llamada
+  a internet. El decodificador lo imita la pantalla En vivo.
+  Puertos publicados por docker compose: 3000 (nginx) y 8080 (backend).
+  La base de datos solo es visible dentro de la red de compose.
+end note
 @enduml

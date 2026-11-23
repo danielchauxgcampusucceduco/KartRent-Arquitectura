@@ -16,17 +16,25 @@ class ReservarTanda <<Controlador>> {
   + ejecutar(documento : String, codigoSesion : String, cupos : int) : Reserva
 }
 class PagarReserva <<Controlador>> {
-  + ejecutar(codigoReserva : UUID, metodo : String, claveIdempotencia : String) : Resultado
+  + ejecutar(codigoReserva : UUID, metodo : MetodoPago, claveIdempotencia : String) : Resultado
+  + procesarWebhook(cuerpo : String, firma : String) : Resultado
   + confirmarDesdePasarela(referencia : String, aprobado : boolean) : Resultado
+}
+class CancelarReserva <<Controlador>> {
+  + ejecutar(codigoReserva : UUID) : Reserva
+}
+class CancelarTanda <<Controlador>> {
+  + ejecutar(codigoSesion : String) : SesionPista
 }
 class ControlarSesion <<Controlador>> {
   + parrilla(codigoSesion : String) : Parrilla
   + asignarKart(codigoSesion : String, codigoReserva : UUID, documentoPiloto : String, numeroKart : int) : AsignacionKart
+  + desasignarKart(codigoSesion : String, numeroKart : int) : void
   + iniciar(codigoSesion : String) : SesionPista
   + finalizar(codigoSesion : String) : Cierre
 }
 class RegistrarPaso <<Controlador>> {
-  + ejecutar(codigoTransponder : String, marca : Instant) : Optional<VueltaRegistrada>
+  + ejecutar(codigoTransponder : String, marcaTiempo : Instant) : Optional<VueltaRegistrada>
 }
 class GestionarOrdenes <<Controlador>> {
   + asignar(numeroOrden : String, codigoMecanico : String) : OrdenMantenimiento
@@ -64,23 +72,27 @@ class Reserva <<Experto>> <<Creador>> {
   - venceRetencion : LocalDateTime
   + {static} crear(cliente, sesion, cupos, tarifa, ahora, retencion) : Reserva
   + {static} calcularTotal(tarifaPorCupo : BigDecimal, cupos : int) : BigDecimal
-  + registrarPago(referencia : String, metodo : String, aprobado : boolean, ahora : LocalDateTime) : Pago
+  + verificarPagable(ahora : LocalDateTime) : void
+  + registrarPago(referencia : String, metodo : MetodoPago, aprobado : boolean, ahora : LocalDateTime) : Pago
   + confirmar(pago : Pago) : void
   + expirar(ahora : LocalDateTime) : boolean
   + cancelar() : void
+  + reembolsar() : void
 }
 class Tarifa <<Experto>> {
-  - tipoKart : String
+  - tipoKart : TipoKart
   - valorPorCupo : BigDecimal
   - vigenteDesde : LocalDate
 }
 class Pago <<Experto>> {
   - referenciaPasarela : String
   - monto : BigDecimal
-  - metodo : String
+  - metodo : MetodoPago
   - aprobado : boolean
+  - reembolsado : boolean
   - fechaPago : LocalDateTime
   + esAprobado() : boolean
+  + reembolsar() : Pago
 }
 class Factura <<Experto>> {
   - numero : String
@@ -100,12 +112,17 @@ class SesionPista <<Experto>> <<Creador>> {
   - duracionMinutos : int
   - cuposMaximos : int
   - cuposVendidos : int
-  - tipoKart : String
+  - tipoKart : TipoKart
   - estado : EstadoSesion
+  - version : long
+  + {static} programar(codigo, inicio, duracionMinutos, cupos, tipoKart) : SesionPista
   + cuposDisponibles() : int
   + reservarCupos(cantidad : int) : void
   + liberarCupos(cantidad : int) : void
   + asignarKart(codigoReserva : UUID, documento : String, nombre : String, edad : int, kart : Kart) : AsignacionKart
+  + desasignarKart(numeroKart : int) : AsignacionKart
+  + liberarCuposDeReserva(codigoReserva : UUID, cupos : int) : void
+  + cancelar() : List<AsignacionKart>
   + iniciar(ahora : LocalDateTime) : void
   + finalizar(ahora : LocalDateTime, longitudPistaM : double) : List<UsoKart>
   + obtenerClasificacion() : List<LineaClasificacion>
@@ -138,17 +155,19 @@ abstract class Kart <<Experto>> <<Polimorfismo>> {
   - horasDesdeUltimoServicio : double
   + estaDisponible() : boolean
   + ponerEnPista() : void
+  + liberar() : void
   + registrarUso(minutos : int, km : double) : void
   + requiereMantenimiento(umbralHoras : double) : boolean
   + bloquear() : void
   + habilitar() : void
-  + {abstract} edadMinimaPiloto() : int
+  + {abstract} tipo() : TipoKart
+  + edadMinimaPiloto() : int
 }
 class KartAdulto <<Polimorfismo>> {
-  + edadMinimaPiloto() : int
+  + tipo() : TipoKart
 }
 class KartInfantil <<Polimorfismo>> {
-  + edadMinimaPiloto() : int
+  + tipo() : TipoKart
   + edadMaximaPiloto() : int
 }
 class Transponder <<Experto>> {
@@ -168,7 +187,7 @@ class OrdenMantenimiento <<Experto>> {
   - observaciones : String
   + {static} preventiva(numero : String, kart : Kart, ahora : LocalDateTime) : OrdenMantenimiento
   + asignar(mecanico : Mecanico) : void
-  + cerrar(codigoMecanico : String, observaciones : String, kart : Kart, ahora : LocalDateTime) : void
+  + cerrar(codigoMecanicoQueCierra : String, observaciones : String, kart : Kart, ahora : LocalDateTime) : void
 }
 
 enum EstadoReserva {
@@ -176,12 +195,24 @@ enum EstadoReserva {
   CONFIRMADA
   CANCELADA
   EXPIRADA
+  REEMBOLSADA
 }
 enum EstadoSesion {
   PROGRAMADA
   EN_PARRILLA
   EN_CURSO
   FINALIZADA
+  CANCELADA
+}
+enum TipoKart {
+  ADULTO
+  INFANTIL
+}
+enum MetodoPago {
+  TARJETA
+  PSE
+  NEQUI
+  SIMULAR_RECHAZO
 }
 enum TipoMantenimiento {
   PREVENTIVO
@@ -220,13 +251,19 @@ Kart "1" -- "0..*" OrdenMantenimiento : < atiende
 OrdenMantenimiento "0..*" --> "0..1" Mecanico : asignada a
 
 Reserva --> EstadoReserva
+Pago --> MetodoPago
 SesionPista --> EstadoSesion
+SesionPista --> TipoKart
+Tarifa --> TipoKart
 Kart --> EstadoKart
+Kart ..> TipoKart
 OrdenMantenimiento --> TipoMantenimiento
 OrdenMantenimiento --> EstadoOrden
 
 ReservarTanda ..> Reserva : <<crea>>
 PagarReserva ..> Factura : <<emite>>
+CancelarReserva ..> Reserva
+CancelarTanda ..> SesionPista
 ControlarSesion ..> SesionPista
 RegistrarPaso ..> AsignacionKart
 GestionarOrdenes ..> OrdenMantenimiento
