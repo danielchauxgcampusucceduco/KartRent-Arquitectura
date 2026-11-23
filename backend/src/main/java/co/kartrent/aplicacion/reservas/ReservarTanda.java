@@ -7,7 +7,7 @@ import co.kartrent.aplicacion.puertos.RepositorioSesiones;
 import co.kartrent.aplicacion.puertos.RepositorioTarifas;
 import co.kartrent.aplicacion.puertos.UnidadDeTrabajo;
 import co.kartrent.dominio.comun.RecursoNoEncontradoException;
-import co.kartrent.dominio.comun.ReglaNegocioException;
+import co.kartrent.dominio.comun.ConflictoException;
 import co.kartrent.dominio.pista.SesionPista;
 import co.kartrent.dominio.reservas.Cliente;
 import co.kartrent.dominio.reservas.Reserva;
@@ -45,7 +45,7 @@ public class ReservarTanda {
                     .orElseThrow(() -> new RecursoNoEncontradoException("Tanda " + codigoSesion + " no existe"));
             LocalDateTime ahora = LocalDateTime.now(reloj);
             Tarifa tarifa = tarifas.vigente(sesion.getTipoKart(), ahora.toLocalDate())
-                    .orElseThrow(() -> new ReglaNegocioException("No hay tarifa vigente para karts " + sesion.getTipoKart()));
+                    .orElseThrow(() -> new ConflictoException("No hay tarifa vigente para karts " + sesion.getTipoKart()));
             Reserva reserva = Reserva.crear(cliente, sesion, cupos, tarifa, ahora, parametros.retencionReserva());
             sesiones.guardar(sesion);
             reservas.guardar(reserva);

@@ -1,5 +1,6 @@
 package co.kartrent.dominio.flota;
 
+import co.kartrent.dominio.comun.ConflictoException;
 import co.kartrent.dominio.comun.ReglaNegocioException;
 
 import java.time.LocalDateTime;
@@ -37,7 +38,7 @@ public class OrdenMantenimiento {
     }
 
     public void asignar(Mecanico mecanico) {
-        if (estado == EstadoOrden.CERRADA) throw new ReglaNegocioException("La orden " + numero + " ya está cerrada");
+        if (estado == EstadoOrden.CERRADA) throw new ConflictoException("La orden " + numero + " ya está cerrada");
         if (!mecanico.puedeAtender(tipo)) throw new ReglaNegocioException("El mecánico no atiende órdenes " + tipo);
         this.codigoMecanico = mecanico.getCodigoEmpleado();
         this.estado = EstadoOrden.EN_PROCESO;
@@ -45,9 +46,9 @@ public class OrdenMantenimiento {
 
     /** RN-10: solo el mecánico asignado cierra la orden; el kart vuelve a estar disponible. */
     public void cerrar(String codigoMecanicoQueCierra, String observaciones, Kart kart, LocalDateTime ahora) {
-        if (estado == EstadoOrden.CERRADA) throw new ReglaNegocioException("La orden " + numero + " ya está cerrada");
+        if (estado == EstadoOrden.CERRADA) throw new ConflictoException("La orden " + numero + " ya está cerrada");
         if (codigoMecanico == null || !codigoMecanico.equals(codigoMecanicoQueCierra)) {
-            throw new ReglaNegocioException("Solo el mecánico asignado puede cerrar la orden");
+            throw new ConflictoException("Solo el mecánico asignado puede cerrar la orden");
         }
         if (kart.getNumeroKart() != numeroKart) throw new ReglaNegocioException("La orden no corresponde al kart");
         this.observaciones = observaciones;

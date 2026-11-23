@@ -4,7 +4,7 @@ import co.kartrent.aplicacion.puertos.ParametrosOperacion;
 import co.kartrent.aplicacion.puertos.PublicadorEventos;
 import co.kartrent.aplicacion.puertos.RepositorioSesiones;
 import co.kartrent.aplicacion.puertos.UnidadDeTrabajo;
-import co.kartrent.dominio.comun.ReglaNegocioException;
+import co.kartrent.dominio.comun.ConflictoException;
 import co.kartrent.dominio.eventos.VueltaRegistrada;
 import co.kartrent.dominio.pista.AsignacionKart;
 import co.kartrent.dominio.pista.SesionPista;
@@ -35,7 +35,7 @@ public class RegistrarPaso {
     public Optional<VueltaRegistrada> ejecutar(String codigoTransponder, Instant marcaTiempo) {
         return uow.ejecutar(() -> {
             SesionPista sesion = sesiones.enCursoConTransponder(codigoTransponder)
-                    .orElseThrow(() -> new ReglaNegocioException("El transponder " + codigoTransponder
+                    .orElseThrow(() -> new ConflictoException("El transponder " + codigoTransponder
                             + " no está en una tanda en curso"));
             AsignacionKart asignacion = sesion.asignacionPorTransponder(codigoTransponder).orElseThrow();
             Optional<VueltaTelemetria> vuelta = asignacion.registrarPaso(marcaTiempo, parametros.tiempoMinimoVuelta());

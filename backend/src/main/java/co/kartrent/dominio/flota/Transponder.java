@@ -1,5 +1,6 @@
 package co.kartrent.dominio.flota;
 
+import co.kartrent.dominio.comun.ConflictoException;
 import co.kartrent.dominio.comun.ReglaNegocioException;
 
 /** Agregado al kart: se instala y puede trasladarse a otro. */
@@ -17,7 +18,7 @@ public class Transponder {
     }
 
     public void vincular(Kart kart) {
-        if (!activo) throw new ReglaNegocioException("Transponder " + codigoTransponder + " inactivo");
+        if (!activo) throw new ConflictoException("Transponder " + codigoTransponder + " inactivo");
         kart.vincularTransponder(codigoTransponder);
     }
 

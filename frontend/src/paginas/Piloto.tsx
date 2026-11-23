@@ -116,7 +116,7 @@ export default function Piloto() {
                     <div className="fila">
                       <button onClick={() => pagar('TARJETA')}>Pagar con tarjeta</button>
                       <button className="secundario" onClick={() => pagar('PSE')}>PSE</button>
-                      <button className="peligro" onClick={() => pagar('RECHAZAR')} title="Simula un pago rechazado">Simular rechazo</button>
+                      <button className="peligro" onClick={() => pagar('SIMULAR_RECHAZO')} title="Simula un pago rechazado">Simular rechazo</button>
                     </div>
                   </>
                 )}
@@ -150,7 +150,7 @@ function Registro({ documento, alRegistrar, ejecutar }: {
     <div className="registro">
       <p className="nota">No encontramos ese documento. Regístrate:</p>
       <input placeholder="Nombre completo" value={f.nombre} onChange={e => setF({ ...f, nombre: e.target.value })} />
-      <input placeholder="Correo" type="email" value={f.correo} onChange={e => setF({ ...f, correo: e.target.value })} />
+      <input placeholder="Correo" type="email" required value={f.correo} onChange={e => setF({ ...f, correo: e.target.value })} />
       <input placeholder="Teléfono" value={f.telefono} onChange={e => setF({ ...f, telefono: e.target.value })} />
       <label>Fecha de nacimiento <input type="date" value={f.fechaNacimiento} onChange={e => setF({ ...f, fechaNacimiento: e.target.value })} /></label>
       <label className="check">

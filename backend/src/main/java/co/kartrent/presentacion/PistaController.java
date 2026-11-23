@@ -1,9 +1,7 @@
 package co.kartrent.presentacion;
 
-import co.kartrent.aplicacion.administracion.ConfigurarOperacion;
 import co.kartrent.aplicacion.pista.ControlarSesion;
 import co.kartrent.aplicacion.pista.RegistrarPaso;
-import co.kartrent.aplicacion.puertos.ParametrosOperacion;
 import co.kartrent.presentacion.Dtos.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,29 +21,17 @@ import java.util.List;
 public class PistaController {
     private final ControlarSesion controlar;
     private final RegistrarPaso registrarPaso;
-    private final ConfigurarOperacion configurar;
-    private final ParametrosOperacion parametros;
     private final Clock reloj;
 
-    public PistaController(ControlarSesion controlar, RegistrarPaso registrarPaso, ConfigurarOperacion configurar,
-                           ParametrosOperacion parametros, Clock reloj) {
+    public PistaController(ControlarSesion controlar, RegistrarPaso registrarPaso, Clock reloj) {
         this.controlar = controlar;
         this.registrarPaso = registrarPaso;
-        this.configurar = configurar;
-        this.parametros = parametros;
         this.reloj = reloj;
     }
 
     @GetMapping("/sesiones")
     public List<SesionDto> sesiones() {
         return controlar.listar().stream().map(SesionDto::de).toList();
-    }
-
-    @PostMapping("/sesiones")
-    @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Programar una tanda (HU-05, requiere tarifa vigente)")
-    public SesionDto programar(@Valid @RequestBody NuevaTanda t) {
-        return SesionDto.de(configurar.programarTanda(t.codigo(), t.inicio(), t.duracionMinutos(), t.cupos(), t.tipoKart()));
     }
 
     @GetMapping("/sesiones/{codigo}")
@@ -56,10 +42,7 @@ public class PistaController {
     @GetMapping("/sesiones/{codigo}/parrilla")
     @Operation(summary = "Reservas confirmadas por asignar y karts disponibles del tipo de la tanda (RN-04)")
     public ParrillaDto parrilla(@PathVariable String codigo) {
-        var p = controlar.parrilla(codigo);
-        double umbral = parametros.umbralHorasPreventivo();
-        return new ParrillaDto(SesionDto.de(p.sesion()), p.reservas(),
-                p.kartsDisponibles().stream().map(k -> KartDto.de(k, umbral)).toList());
+        return ParrillaDto.de(controlar.parrilla(codigo));
     }
 
     @PostMapping("/sesiones/{codigo}/asignaciones")
@@ -77,15 +60,13 @@ public class PistaController {
     @PostMapping("/sesiones/{codigo}/finalizar")
     @Operation(summary = "Finalizar tanda: registra uso y abre órdenes preventivas (HU-04)")
     public CierreDto finalizar(@PathVariable String codigo) {
-        var c = controlar.finalizar(codigo);
-        return new CierreDto(SesionDto.de(c.sesion()), c.usos(), c.ordenesGeneradas().stream().map(OrdenDto::de).toList());
+        return CierreDto.de(controlar.finalizar(codigo));
     }
 
     @GetMapping("/sesiones/{codigo}/clasificacion")
     @Operation(summary = "Clasificación ordenada por mejor vuelta (RN-08). En vivo: STOMP /topic/sesiones/{codigo}/clasificacion")
     public ClasificacionDto clasificacion(@PathVariable String codigo) {
-        var s = controlar.sesion(codigo);
-        return new ClasificacionDto(s.getCodigo(), s.getEstado().name(), s.obtenerClasificacion());
+        return ClasificacionDto.de(controlar.sesion(codigo));
     }
 
     @PostMapping("/telemetria/pasos")
@@ -94,6 +75,6 @@ public class PistaController {
         // Precisión de milisegundos: es la que conserva la base de datos y la del decodificador.
         Instant marca = (p.marcaTiempo() == null ? reloj.instant() : p.marcaTiempo()).truncatedTo(ChronoUnit.MILLIS);
         var v = registrarPaso.ejecutar(p.codigoTransponder(), marca);
-        return new PasoDto(v.isPresent(), v.orElse(null));
+        return new PasoDto(v.isPresent(), VueltaDto.de(v.orElse(null)));
     }
 }

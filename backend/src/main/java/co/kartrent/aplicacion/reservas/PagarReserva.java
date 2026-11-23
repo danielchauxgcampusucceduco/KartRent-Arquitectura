@@ -11,6 +11,7 @@ import co.kartrent.aplicacion.puertos.UnidadDeTrabajo;
 import co.kartrent.dominio.comun.RecursoNoEncontradoException;
 import co.kartrent.dominio.eventos.ReservaConfirmada;
 import co.kartrent.dominio.facturacion.Factura;
+import co.kartrent.dominio.facturacion.MetodoPago;
 import co.kartrent.dominio.facturacion.Pago;
 import co.kartrent.dominio.reservas.EstadoReserva;
 import co.kartrent.dominio.reservas.Reserva;
@@ -49,7 +50,7 @@ public class PagarReserva {
         this.reloj = reloj;
     }
 
-    public Resultado ejecutar(UUID codigoReserva, String metodo, String claveIdempotencia) {
+    public Resultado ejecutar(UUID codigoReserva, MetodoPago metodo, String claveIdempotencia) {
         return uow.ejecutar(() -> {
             Reserva reserva = reservas.buscar(codigoReserva)
                     .orElseThrow(() -> new RecursoNoEncontradoException("Reserva " + codigoReserva + " no existe"));
@@ -57,9 +58,10 @@ public class PagarReserva {
                     ? codigoReserva : claveIdempotencia);
             Optional<Pago> previo = facturacion.pagoPorReferencia(referencia);
             if (previo.isPresent()) {
-                return new Resultado(reserva, previo.get(), facturacion.facturaDeReserva(codigoReserva).orElse(null));
+                return new Resultado(reserva, previo.get(), facturacion.facturaDeReserva(codigoReserva).orElse(null), true);
             }
             LocalDateTime ahora = LocalDateTime.now(reloj);
+            reserva.verificarPagable(ahora);
             PasarelaPagos.ResultadoPago respuesta = pasarela.cobrar(referencia, reserva.getValorTotal(), metodo);
             Pago pago = reserva.registrarPago(referencia, metodo, respuesta.aprobado(), ahora);
             facturacion.guardarPago(pago);
@@ -69,6 +71,12 @@ public class PagarReserva {
             }
             return new Resultado(reserva, pago, factura);
         });
+    }
+
+    /** Webhook de la pasarela: la pasarela verifica la firma y lee el cuerpo; aquí solo se confirma el pago. */
+    public Resultado procesarWebhook(String cuerpo, String firma) {
+        PasarelaPagos.NotificacionPago n = pasarela.interpretarNotificacion(cuerpo, firma);
+        return confirmarDesdePasarela(n.referencia(), n.aprobado());
     }
 
     /** Llamado por el webhook de la pasarela cuando la aprobación llega de forma asíncrona. */
@@ -102,6 +110,10 @@ public class PagarReserva {
         return factura;
     }
 
-    public record Resultado(Reserva reserva, Pago pago, Factura factura) {
+    /** {@code repeticion} es true cuando la clave de idempotencia ya se había usado: no se cobró de nuevo. */
+    public record Resultado(Reserva reserva, Pago pago, Factura factura, boolean repeticion) {
+        public Resultado(Reserva reserva, Pago pago, Factura factura) {
+            this(reserva, pago, factura, false);
+        }
     }
 }

@@ -1,17 +1,24 @@
 package co.kartrent.dominio;
 
+import co.kartrent.dominio.comun.ConflictoException;
 import co.kartrent.dominio.comun.ReglaNegocioException;
 import co.kartrent.dominio.facturacion.Factura;
 import co.kartrent.dominio.flota.EstadoKart;
 import co.kartrent.dominio.flota.KartAdulto;
 import co.kartrent.dominio.flota.KartInfantil;
+import co.kartrent.dominio.flota.TipoKart;
 import co.kartrent.dominio.pista.AsignacionKart;
+import co.kartrent.dominio.pista.SesionPista;
 import co.kartrent.dominio.pista.VueltaTelemetria;
+import co.kartrent.dominio.reservas.Cliente;
+import co.kartrent.dominio.reservas.Reserva;
+import co.kartrent.dominio.reservas.Tarifa;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -66,5 +73,52 @@ class ReglasDominioTest {
         assertEquals(0, new BigDecimal("100000").compareTo(f.subtotal()));
         assertEquals(0, new BigDecimal("19000").compareTo(f.iva()));
         assertEquals(96, f.cufe().length());
+    }
+
+    private static final LocalDateTime AHORA = LocalDateTime.of(2026, 11, 20, 17, 0);
+
+    private static Cliente cliente(int edad) {
+        return new Cliente("1", "Ana", "ana@correo.co", "300", AHORA.toLocalDate().minusYears(edad).minusDays(5), true,
+                AHORA.toLocalDate());
+    }
+
+    private static SesionPista tanda(TipoKart tipo, LocalDateTime inicio) {
+        return SesionPista.programar("T-1", inicio, 10, 4, tipo);
+    }
+
+    @Test
+    void lasEdadesPermitidasSalenDelTipoDeKart() {
+        assertEquals(16, TipoKart.ADULTO.edadMinima());
+        assertEquals(8, TipoKart.INFANTIL.edadMinima());
+        assertEquals(15, TipoKart.INFANTIL.edadMaxima());
+        assertEquals(15, new KartInfantil(9, EstadoKart.DISPONIBLE, 0, 0, 0, "TR-109").edadMaximaPiloto());
+    }
+
+    @Test
+    void unAdultoNoPuedeReservarUnaTandaInfantil() {
+        var tarifa = new Tarifa(TipoKart.INFANTIL, new BigDecimal("30000"), LocalDate.of(2026, 1, 1));
+        var e = assertThrows(ReglaNegocioException.class, () -> Reserva.crear(cliente(30),
+                tanda(TipoKart.INFANTIL, AHORA.plusHours(1)), 1, tarifa, AHORA, Duration.ofMinutes(10)));
+        assertTrue(e.getMessage().contains("hasta 15"));
+    }
+
+    @Test
+    void unMenorDe16NoPuedeReservarUnaTandaDeAdultos() {
+        var tarifa = new Tarifa(TipoKart.ADULTO, new BigDecimal("45000"), LocalDate.of(2026, 1, 1));
+        assertThrows(ReglaNegocioException.class, () -> Reserva.crear(cliente(12),
+                tanda(TipoKart.ADULTO, AHORA.plusHours(1)), 1, tarifa, AHORA, Duration.ofMinutes(10)));
+    }
+
+    @Test
+    void noSeReservaUnaTandaCuyaHoraYaPaso() {
+        var tarifa = new Tarifa(TipoKart.ADULTO, new BigDecimal("45000"), LocalDate.of(2026, 1, 1));
+        assertThrows(ConflictoException.class, () -> Reserva.crear(cliente(30),
+                tanda(TipoKart.ADULTO, AHORA.minusMinutes(1)), 1, tarifa, AHORA, Duration.ofMinutes(10)));
+    }
+
+    @Test
+    void cuposInsuficientesEsUnConflictoDeEstado() {
+        var sesion = tanda(TipoKart.ADULTO, AHORA.plusHours(1));
+        assertThrows(ConflictoException.class, () -> sesion.reservarCupos(5));
     }
 }

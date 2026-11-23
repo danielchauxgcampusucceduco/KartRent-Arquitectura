@@ -3,10 +3,12 @@ package co.kartrent.aceptacion;
 import co.kartrent.aplicacion.administracion.ReporteOcupacion;
 import co.kartrent.aplicacion.reservas.RegistrarCliente;
 import co.kartrent.dominio.eventos.VueltaRegistrada;
+import co.kartrent.dominio.facturacion.MetodoPago;
 import co.kartrent.dominio.flota.EstadoKart;
 import co.kartrent.dominio.flota.KartAdulto;
 import co.kartrent.dominio.flota.Mecanico;
 import co.kartrent.dominio.flota.OrdenMantenimiento;
+import co.kartrent.dominio.flota.TipoKart;
 import co.kartrent.dominio.pista.SesionPista;
 import co.kartrent.dominio.reservas.Reserva;
 import co.kartrent.soporte.Kartodromo;
@@ -47,13 +49,13 @@ public class PasosKartRent {
     // ---------- Contexto ----------
     @Dado("una tarifa {word} de {int} pesos por cupo")
     public void tarifa(String tipo, int valor) {
-        k.configurarOperacion.registrarTarifa(tipo, BigDecimal.valueOf(valor), LocalDate.of(2026, 1, 1));
+        k.configurarOperacion.registrarTarifa(TipoKart.valueOf(tipo), BigDecimal.valueOf(valor), LocalDate.of(2026, 1, 1));
     }
 
     @Dado("una tanda {string} de karts {word} con {int} cupos")
     public void tanda(String codigo, String tipo, int cupos) {
         LocalDateTime inicio = LocalDateTime.now(k.reloj).plusHours(1 + tandas++);
-        k.configurarOperacion.programarTanda(codigo, inicio, 10, cupos, tipo);
+        k.configurarOperacion.programarTanda(codigo, inicio, 10, cupos, TipoKart.valueOf(tipo));
     }
 
     @Dado("el cliente {string} de {int} años con exoneración firmada")
@@ -78,7 +80,7 @@ public class PasosKartRent {
     @Dado("el cliente {string} tiene {int} cupos pagados en la tanda {string}")
     public void cuposPagados(String doc, int cupos, String tanda) {
         reserva = k.reservarTanda.ejecutar(doc, tanda, cupos);
-        k.pagarReserva.ejecutar(reserva.getCodigo(), "TARJETA", "pre-" + doc + tanda);
+        k.pagarReserva.ejecutar(reserva.getCodigo(), MetodoPago.TARJETA, "pre-" + doc + tanda);
     }
 
     @Dado("el kart {int} está en mantenimiento")
@@ -129,7 +131,7 @@ public class PasosKartRent {
 
     @Cuando("paga la reserva con {string} y la clave {string}")
     public void pagar(String metodo, String clave) {
-        k.pagarReserva.ejecutar(reserva.getCodigo(), metodo, clave);
+        k.pagarReserva.ejecutar(reserva.getCodigo(), MetodoPago.valueOf(metodo), clave);
     }
 
     @Cuando("pasan {int} minutos")
@@ -276,7 +278,7 @@ public class PasosKartRent {
     // ---------- HU-05 ----------
     @Cuando("el administrador intenta programar la tanda {string} de karts {word}")
     public void intentaProgramar(String codigo, String tipo) {
-        intentar(() -> k.configurarOperacion.programarTanda(codigo, LocalDateTime.now(k.reloj).plusHours(2), 10, 6, tipo));
+        intentar(() -> k.configurarOperacion.programarTanda(codigo, LocalDateTime.now(k.reloj).plusHours(2), 10, 6, TipoKart.valueOf(tipo)));
     }
 
     @Cuando("el administrador consulta el reporte de ocupación del mes")

@@ -9,6 +9,7 @@ import co.kartrent.aplicacion.puertos.RepositorioKarts;
 import co.kartrent.aplicacion.puertos.RepositorioReservas;
 import co.kartrent.aplicacion.puertos.RepositorioSesiones;
 import co.kartrent.aplicacion.puertos.UnidadDeTrabajo;
+import co.kartrent.dominio.comun.ConflictoException;
 import co.kartrent.dominio.comun.RecursoNoEncontradoException;
 import co.kartrent.dominio.comun.ReglaNegocioException;
 import co.kartrent.dominio.eventos.SesionFinalizada;
@@ -64,7 +65,7 @@ public class ControlarSesion {
                         r.getCantidadCupos(),
                         (int) sesion.getAsignaciones().stream().filter(a -> a.getCodigoReserva().equals(r.getCodigo())).count()))
                 .toList();
-        return new Parrilla(sesion, pendientes, flota.disponibles(sesion.getTipoKart()));
+        return new Parrilla(sesion, pendientes, flota.disponibles(sesion.getTipoKart()), flota.umbralHoras());
     }
 
     public AsignacionKart asignarKart(String codigoSesion, UUID codigoReserva, String documentoPiloto, int numeroKart) {
@@ -73,10 +74,10 @@ public class ControlarSesion {
             Reserva reserva = reservas.buscar(codigoReserva)
                     .orElseThrow(() -> new RecursoNoEncontradoException("Reserva " + codigoReserva + " no existe"));
             if (!reserva.getCodigoSesion().equals(codigoSesion) || reserva.getEstado() != EstadoReserva.CONFIRMADA) {
-                throw new ReglaNegocioException("La reserva no está confirmada para esta tanda");
+                throw new ConflictoException("La reserva no está confirmada para esta tanda");
             }
             long usados = sesion.getAsignaciones().stream().filter(a -> a.getCodigoReserva().equals(codigoReserva)).count();
-            if (usados >= reserva.getCantidadCupos()) throw new ReglaNegocioException("La reserva ya usó todos sus cupos");
+            if (usados >= reserva.getCantidadCupos()) throw new ConflictoException("La reserva ya usó todos sus cupos");
             Cliente piloto = clientes.buscar(documentoPiloto)
                     .orElseThrow(() -> new RecursoNoEncontradoException("Piloto " + documentoPiloto + " no registrado"));
             if (!piloto.isExoneracionFirmada()) throw new ReglaNegocioException("El piloto no ha firmado la exoneración");
@@ -124,7 +125,8 @@ public class ControlarSesion {
     public record ReservaPendiente(UUID codigoReserva, String documentoCliente, String nombreCliente, int cupos, int asignados) {
     }
 
-    public record Parrilla(SesionPista sesion, List<ReservaPendiente> reservas, List<Kart> kartsDisponibles) {
+    public record Parrilla(SesionPista sesion, List<ReservaPendiente> reservas, List<Kart> kartsDisponibles,
+                           double umbralHoras) {
     }
 
     public record Cierre(SesionPista sesion, List<UsoKart> usos, List<OrdenMantenimiento> ordenesGeneradas) {

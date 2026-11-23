@@ -2,6 +2,7 @@ package co.kartrent.infraestructura.config;
 
 import co.kartrent.aplicacion.administracion.ConfigurarOperacion;
 import co.kartrent.aplicacion.puertos.RepositorioSesiones;
+import co.kartrent.dominio.flota.TipoKart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -45,7 +46,8 @@ public class DatosDemo implements ApplicationRunner {
                 boolean infantil = hora == 10 || hora == 14 || hora == 16;
                 String codigo = (infantil ? "I-" : "T-") + inicio.format(CODIGO);
                 if (sesiones.buscar(codigo).isPresent()) continue;
-                configurar.programarTanda(codigo, inicio, 10, infantil ? 4 : 8, infantil ? "INFANTIL" : "ADULTO");
+                configurar.programarTanda(codigo, inicio, 10, infantil ? 4 : 8,
+                        infantil ? TipoKart.INFANTIL : TipoKart.ADULTO);
                 creadas++;
             }
         }

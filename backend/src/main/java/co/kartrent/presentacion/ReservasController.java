@@ -1,9 +1,7 @@
 package co.kartrent.presentacion;
 
 import co.kartrent.aplicacion.reservas.*;
-import co.kartrent.infraestructura.pagos.VerificadorFirmaWebhook;
 import co.kartrent.presentacion.Dtos.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -25,18 +23,14 @@ public class ReservasController {
     private final ReservarTanda reservarTanda;
     private final PagarReserva pagarReserva;
     private final ConsultarReservas consultar;
-    private final VerificadorFirmaWebhook firma;
-    private final ObjectMapper json;
     private final Clock reloj;
 
     public ReservasController(RegistrarCliente registrarCliente, ReservarTanda reservarTanda, PagarReserva pagarReserva,
-                              ConsultarReservas consultar, VerificadorFirmaWebhook firma, ObjectMapper json, Clock reloj) {
+                              ConsultarReservas consultar, Clock reloj) {
         this.registrarCliente = registrarCliente;
         this.reservarTanda = reservarTanda;
         this.pagarReserva = pagarReserva;
         this.consultar = consultar;
-        this.firma = firma;
-        this.json = json;
         this.reloj = reloj;
     }
 
@@ -77,26 +71,29 @@ public class ReservasController {
     }
 
     @PostMapping("/reservas/{codigo}/pagos")
-    @Operation(summary = "Pagar la reserva. Idempotente con la cabecera Idempotency-Key")
-    public PagoDto pagar(@PathVariable UUID codigo, @Valid @RequestBody NuevoPago p,
-                         @RequestHeader(name = "Idempotency-Key", required = false) String clave) {
+    @Operation(summary = "Pagar la reserva. Idempotente con la cabecera Idempotency-Key",
+            description = "201 cuando se registra un intento de pago nuevo, aprobado o rechazado: si pago.aprobado es false "
+                    + "la reserva sigue PENDIENTE_PAGO y se puede reintentar con otra Idempotency-Key. 200 cuando la clave "
+                    + "ya se había usado (no se cobra de nuevo). 409 si la reserva ya no está pendiente o la retención expiró.")
+    public ResponseEntity<PagoDto> pagar(@PathVariable UUID codigo, @Valid @RequestBody NuevoPago p,
+                                         @RequestHeader(name = "Idempotency-Key", required = false) String clave) {
         var r = pagarReserva.ejecutar(codigo, p.metodo(), clave == null ? codigo.toString() : clave);
-        return new PagoDto(ReservaDto.de(r.reserva()), r.pago(), r.factura());
+        return ResponseEntity.status(r.repeticion() ? HttpStatus.OK : HttpStatus.CREATED).body(aDto(r));
     }
 
     @GetMapping("/reservas/{codigo}/factura")
-    public ResponseEntity<?> factura(@PathVariable UUID codigo) {
-        return consultar.factura(codigo).<ResponseEntity<?>>map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public FacturaDto factura(@PathVariable UUID codigo) {
+        return FacturaDto.de(consultar.factura(codigo));
     }
 
     @PostMapping("/pagos/webhook")
-    @Operation(summary = "Confirmación asíncrona de la pasarela, firmada con HMAC-SHA256 (X-Firma)")
-    public ResponseEntity<?> webhook(@RequestBody String cuerpo, @RequestHeader(name = "X-Firma", required = false) String f)
-            throws Exception {
-        if (!firma.esValida(cuerpo, f)) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        WebhookPago w = json.readValue(cuerpo, WebhookPago.class);
-        var r = pagarReserva.confirmarDesdePasarela(w.referencia(), w.aprobado());
-        return ResponseEntity.ok(new PagoDto(ReservaDto.de(r.reserva()), r.pago(), r.factura()));
+    @Operation(summary = "Confirmación asíncrona de la pasarela, firmada con HMAC-SHA256 (X-Firma)",
+            description = "401 si la firma no coincide; 400 si el cuerpo no es un JSON válido; 404 si la referencia no existe.")
+    public PagoDto webhook(@RequestBody String cuerpo, @RequestHeader(name = "X-Firma", required = false) String firma) {
+        return aDto(pagarReserva.procesarWebhook(cuerpo, firma));
+    }
+
+    private static PagoDto aDto(PagarReserva.Resultado r) {
+        return new PagoDto(ReservaDto.de(r.reserva()), PagoInfoDto.de(r.pago()), FacturaDto.de(r.factura()));
     }
 }

@@ -1,6 +1,11 @@
 package co.kartrent.infraestructura.pagos;
 
 import co.kartrent.aplicacion.puertos.PasarelaPagos;
+import co.kartrent.dominio.comun.NoAutorizadoException;
+import co.kartrent.dominio.comun.ReglaNegocioException;
+import co.kartrent.dominio.facturacion.MetodoPago;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -8,18 +13,41 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 
 /**
- * Adaptador de la pasarela (Fabricación Pura). Simula Wompi/PayU para la demo:
- * aprueba todo salvo el método "RECHAZAR". En producción se reemplaza por el cliente HTTP real.
+ * Adaptador de la pasarela (Fabricación Pura). Simula una pasarela real para la demo: aprueba todo salvo el método
+ * SIMULAR_RECHAZO. En producción se reemplaza por el cliente HTTP real y por su verificación de webhook.
  */
 @Component
 public class PasarelaPagosSimulada implements PasarelaPagos {
     private static final Logger log = LoggerFactory.getLogger(PasarelaPagosSimulada.class);
+    private final VerificadorFirmaWebhook firma;
+    private final ObjectMapper json;
+
+    public PasarelaPagosSimulada(VerificadorFirmaWebhook firma, ObjectMapper json) {
+        this.firma = firma;
+        this.json = json;
+    }
 
     @Override
-    public ResultadoPago cobrar(String referencia, BigDecimal monto, String metodo) {
-        boolean aprobado = !"RECHAZAR".equalsIgnoreCase(metodo) && monto.signum() > 0;
+    public ResultadoPago cobrar(String referencia, BigDecimal monto, MetodoPago metodo) {
+        boolean aprobado = metodo != MetodoPago.SIMULAR_RECHAZO && monto.signum() > 0;
         log.info("Pasarela simulada: referencia={} monto={} metodo={} -> {}", referencia, monto, metodo,
                 aprobado ? "APROBADA" : "RECHAZADA");
         return new ResultadoPago(aprobado, referencia, aprobado ? "APROBADA" : "RECHAZADA");
+    }
+
+    @Override
+    public NotificacionPago interpretarNotificacion(String cuerpo, String firmaRecibida) {
+        if (!firma.esValida(cuerpo, firmaRecibida)) {
+            throw new NoAutorizadoException("Firma de webhook inválida");
+        }
+        try {
+            NotificacionPago n = json.readValue(cuerpo, NotificacionPago.class);
+            if (n.referencia() == null || n.referencia().isBlank()) {
+                throw new ReglaNegocioException("La notificación no trae referencia");
+            }
+            return n;
+        } catch (JsonProcessingException e) {
+            throw new ReglaNegocioException("El cuerpo del webhook no es un JSON válido");
+        }
     }
 }

@@ -37,12 +37,12 @@ public class Kartodromo {
     public final PagarReserva pagarReserva = new PagarReserva(reservas, clientes, facturacion, pasarela, buzon, buzon,
             parametros, uow, reloj);
     public final ExpirarReservas expirarReservas = new ExpirarReservas(reservas, sesiones, uow, reloj);
-    public final ConsultarFlota consultarFlota = new ConsultarFlota(karts);
+    public final ConsultarFlota consultarFlota = new ConsultarFlota(karts, parametros);
     public final RegistrarUso registrarUso = new RegistrarUso(karts, ordenes, parametros, buzon, buzon, reloj);
     public final GestionarOrdenes gestionarOrdenes = new GestionarOrdenes(ordenes, karts, mecanicos, uow, reloj);
     public final ControlarSesion controlarSesion = new ControlarSesion(sesiones, reservas, clientes, karts, consultarFlota,
             registrarUso, buzon, parametros, uow, reloj);
     public final RegistrarPaso registrarPaso = new RegistrarPaso(sesiones, parametros, buzon, uow, reloj);
-    public final ConfigurarOperacion configurarOperacion = new ConfigurarOperacion(tarifas, sesiones, parametros, uow);
+    public final ConfigurarOperacion configurarOperacion = new ConfigurarOperacion(tarifas, sesiones, parametros, uow, reloj);
     public final ReporteOcupacion reporteOcupacion = new ReporteOcupacion(sesiones, reservas);
 }

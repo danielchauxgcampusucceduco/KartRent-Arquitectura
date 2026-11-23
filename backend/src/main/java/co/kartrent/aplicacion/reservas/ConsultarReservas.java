@@ -9,7 +9,6 @@ import co.kartrent.dominio.reservas.Cliente;
 import co.kartrent.dominio.reservas.Reserva;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 public class ConsultarReservas {
@@ -27,8 +26,9 @@ public class ConsultarReservas {
         return reservas.buscar(codigo).orElseThrow(() -> new RecursoNoEncontradoException("Reserva " + codigo + " no existe"));
     }
 
-    public Optional<Factura> factura(UUID codigoReserva) {
-        return facturacion.facturaDeReserva(codigoReserva);
+    public Factura factura(UUID codigoReserva) {
+        return facturacion.facturaDeReserva(codigoReserva).orElseThrow(
+                () -> new RecursoNoEncontradoException("La reserva " + codigoReserva + " no tiene factura"));
     }
 
     public List<Reserva> deCliente(String documento) {

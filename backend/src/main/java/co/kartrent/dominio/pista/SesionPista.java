@@ -1,8 +1,9 @@
 package co.kartrent.dominio.pista;
 
+import co.kartrent.dominio.comun.ConflictoException;
 import co.kartrent.dominio.comun.ReglaNegocioException;
 import co.kartrent.dominio.flota.Kart;
-import co.kartrent.dominio.flota.KartInfantil;
+import co.kartrent.dominio.flota.TipoKart;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -21,14 +22,14 @@ public class SesionPista {
     private final int duracionMinutos;
     private final int cuposMaximos;
     private int cuposVendidos;
-    private final String tipoKart;
+    private final TipoKart tipoKart;
     private EstadoSesion estado;
     private LocalDateTime inicioReal;
     private LocalDateTime finReal;
     private final List<AsignacionKart> asignaciones = new ArrayList<>();
 
     public SesionPista(String codigo, LocalDateTime horaInicioProgramada, int duracionMinutos, int cuposMaximos,
-                       int cuposVendidos, String tipoKart, EstadoSesion estado, LocalDateTime inicioReal,
+                       int cuposVendidos, TipoKart tipoKart, EstadoSesion estado, LocalDateTime inicioReal,
                        LocalDateTime finReal, List<AsignacionKart> asignaciones) {
         if (cuposMaximos <= 0) throw new ReglaNegocioException("La tanda debe ofrecer al menos un cupo");
         if (duracionMinutos <= 0) throw new ReglaNegocioException("La duración debe ser positiva");
@@ -44,7 +45,7 @@ public class SesionPista {
         if (asignaciones != null) this.asignaciones.addAll(asignaciones);
     }
 
-    public static SesionPista programar(String codigo, LocalDateTime inicio, int duracionMinutos, int cupos, String tipoKart) {
+    public static SesionPista programar(String codigo, LocalDateTime inicio, int duracionMinutos, int cupos, TipoKart tipoKart) {
         return new SesionPista(codigo, inicio, duracionMinutos, cupos, 0, tipoKart, EstadoSesion.PROGRAMADA,
                 null, null, List.of());
     }
@@ -55,10 +56,10 @@ public class SesionPista {
 
     public void reservarCupos(int cantidad) {
         if (estado != EstadoSesion.PROGRAMADA && estado != EstadoSesion.EN_PARRILLA) {
-            throw new ReglaNegocioException("La tanda " + codigo + " ya no acepta reservas");
+            throw new ConflictoException("La tanda " + codigo + " ya no acepta reservas");
         }
         if (cantidad <= 0) throw new ReglaNegocioException("La cantidad de cupos debe ser positiva");
-        if (cantidad > cuposDisponibles()) throw new ReglaNegocioException("Cupos insuficientes");
+        if (cantidad > cuposDisponibles()) throw new ConflictoException("Cupos insuficientes");
         cuposVendidos += cantidad;
     }
 
@@ -70,20 +71,20 @@ public class SesionPista {
     public AsignacionKart asignarKart(UUID codigoReserva, String documentoPiloto, String nombrePiloto,
                                       int edadPiloto, Kart kart) {
         if (estado != EstadoSesion.PROGRAMADA && estado != EstadoSesion.EN_PARRILLA) {
-            throw new ReglaNegocioException("La parrilla de la tanda " + codigo + " está cerrada");
+            throw new ConflictoException("La parrilla de la tanda " + codigo + " está cerrada");
         }
-        if (!kart.estaDisponible()) throw new ReglaNegocioException("Kart " + kart.getNumeroKart() + " no disponible");
-        if (!kart.tipo().equals(tipoKart)) throw new ReglaNegocioException("La tanda " + codigo + " es para karts " + tipoKart);
+        if (!kart.estaDisponible()) throw new ConflictoException("Kart " + kart.getNumeroKart() + " no disponible");
+        if (!kart.tipo().equals(tipoKart)) throw new ConflictoException("La tanda " + codigo + " es para karts " + tipoKart);
         if (edadPiloto < kart.edadMinimaPiloto()) throw new ReglaNegocioException("El piloto no cumple la edad mínima del kart");
-        if (kart instanceof KartInfantil infantil && edadPiloto > infantil.edadMaximaPiloto()) {
+        if (edadPiloto > kart.tipo().edadMaxima()) {
             throw new ReglaNegocioException("Un kart infantil no puede asignarse a un adulto");
         }
         boolean karRepetido = asignaciones.stream().anyMatch(a -> a.getNumeroKart() == kart.getNumeroKart());
-        if (karRepetido) throw new ReglaNegocioException("Kart " + kart.getNumeroKart() + " ya está en la parrilla");
+        if (karRepetido) throw new ConflictoException("Kart " + kart.getNumeroKart() + " ya está en la parrilla");
         boolean pilotoRepetido = asignaciones.stream().anyMatch(a -> a.getDocumentoPiloto().equals(documentoPiloto));
-        if (pilotoRepetido) throw new ReglaNegocioException("El piloto ya tiene kart en esta tanda");
-        if (asignaciones.size() >= cuposVendidos) throw new ReglaNegocioException("No hay más pilotos confirmados para asignar");
-        if (kart.getCodigoTransponder() == null) throw new ReglaNegocioException("El kart no tiene transponder vinculado");
+        if (pilotoRepetido) throw new ConflictoException("El piloto ya tiene kart en esta tanda");
+        if (asignaciones.size() >= cuposVendidos) throw new ConflictoException("No hay más pilotos confirmados para asignar");
+        if (kart.getCodigoTransponder() == null) throw new ConflictoException("El kart no tiene transponder vinculado");
 
         AsignacionKart asignacion = new AsignacionKart(asignaciones.size() + 1, codigoReserva, documentoPiloto,
                 nombrePiloto, kart.getNumeroKart(), kart.getCodigoTransponder(), null, List.of());
@@ -93,14 +94,14 @@ public class SesionPista {
     }
 
     public void iniciar(LocalDateTime ahora) {
-        if (estado != EstadoSesion.EN_PARRILLA) throw new ReglaNegocioException("Solo se inicia una tanda con parrilla armada");
+        if (estado != EstadoSesion.EN_PARRILLA) throw new ConflictoException("Solo se inicia una tanda con parrilla armada");
         inicioReal = ahora;
         estado = EstadoSesion.EN_CURSO;
     }
 
     /** Cierra la tanda y devuelve el uso de cada kart para que Flota lo acumule. */
     public List<UsoKart> finalizar(LocalDateTime ahora, double longitudPistaM) {
-        if (estado != EstadoSesion.EN_CURSO) throw new ReglaNegocioException("La tanda " + codigo + " no está en curso");
+        if (estado != EstadoSesion.EN_CURSO) throw new ConflictoException("La tanda " + codigo + " no está en curso");
         finReal = ahora;
         estado = EstadoSesion.FINALIZADA;
         int minutos = (int) Math.max(1, Duration.between(inicioReal, finReal).toMinutes());
@@ -134,7 +135,7 @@ public class SesionPista {
     public int getDuracionMinutos() { return duracionMinutos; }
     public int getCuposMaximos() { return cuposMaximos; }
     public int getCuposVendidos() { return cuposVendidos; }
-    public String getTipoKart() { return tipoKart; }
+    public TipoKart getTipoKart() { return tipoKart; }
     public EstadoSesion getEstado() { return estado; }
     public LocalDateTime getInicioReal() { return inicioReal; }
     public LocalDateTime getFinReal() { return finReal; }

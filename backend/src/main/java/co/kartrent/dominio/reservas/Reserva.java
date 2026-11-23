@@ -1,9 +1,10 @@
 package co.kartrent.dominio.reservas;
 
+import co.kartrent.dominio.comun.ConflictoException;
 import co.kartrent.dominio.comun.ReglaNegocioException;
+import co.kartrent.dominio.facturacion.MetodoPago;
 import co.kartrent.dominio.facturacion.Pago;
-import co.kartrent.dominio.flota.KartAdulto;
-import co.kartrent.dominio.flota.KartInfantil;
+import co.kartrent.dominio.flota.TipoKart;
 import co.kartrent.dominio.pista.SesionPista;
 
 import java.math.BigDecimal;
@@ -43,12 +44,17 @@ public class Reserva {
         if (!cliente.isExoneracionFirmada()) {
             throw new ReglaNegocioException("El cliente debe firmar la exoneración de responsabilidad");
         }
-        int edadMinima = KartInfantil.TIPO.equals(sesion.getTipoKart()) ? 8 : 16;
-        if (!KartAdulto.TIPO.equals(sesion.getTipoKart()) && !KartInfantil.TIPO.equals(sesion.getTipoKart())) {
-            throw new ReglaNegocioException("Tipo de kart desconocido");
+        TipoKart tipo = sesion.getTipoKart();
+        int edad = cliente.calcularEdad(ahora.toLocalDate());
+        if (edad < tipo.edadMinima()) {
+            throw new ReglaNegocioException("El piloto no cumple la edad mínima para karts " + tipo);
         }
-        if (cliente.calcularEdad(ahora.toLocalDate()) < edadMinima) {
-            throw new ReglaNegocioException("El piloto no cumple la edad mínima para karts " + sesion.getTipoKart());
+        if (edad > tipo.edadMaxima()) {
+            throw new ReglaNegocioException("Los karts " + tipo + " son solo para pilotos de hasta "
+                    + tipo.edadMaxima() + " años");
+        }
+        if (!sesion.getHoraInicioProgramada().isAfter(ahora)) {
+            throw new ConflictoException("La tanda " + sesion.getCodigo() + " ya comenzó; elige una tanda futura");
         }
         if (!tarifa.tipoKart().equals(sesion.getTipoKart())) {
             throw new ReglaNegocioException("La tarifa no corresponde al tipo de kart de la tanda");
@@ -62,19 +68,24 @@ public class Reserva {
         return tarifaPorCupo.multiply(BigDecimal.valueOf(cupos));
     }
 
-    public Pago registrarPago(String referencia, String metodo, boolean aprobado, LocalDateTime ahora) {
+    public Pago registrarPago(String referencia, MetodoPago metodo, boolean aprobado, LocalDateTime ahora) {
+        verificarPagable(ahora);
+        return new Pago(referencia, codigo, valorTotal, metodo, aprobado, ahora);
+    }
+
+    /** Se invoca antes de cobrar en la pasarela: nunca se cobra una reserva que ya no se puede pagar. */
+    public void verificarPagable(LocalDateTime ahora) {
         if (estado != EstadoReserva.PENDIENTE_PAGO) {
-            throw new ReglaNegocioException("La reserva no está pendiente de pago");
+            throw new ConflictoException("La reserva no está pendiente de pago");
         }
         if (ahora.isAfter(venceRetencion)) {
-            throw new ReglaNegocioException("La retención de cupos expiró; vuelve a reservar");
+            throw new ConflictoException("La retención de cupos expiró; vuelve a reservar");
         }
-        return new Pago(referencia, codigo, valorTotal, metodo, aprobado, ahora);
     }
 
     public void confirmar(Pago pago) {
         if (!pago.esAprobado()) throw new ReglaNegocioException("El pago no fue aprobado");
-        if (estado != EstadoReserva.PENDIENTE_PAGO) throw new ReglaNegocioException("La reserva no está pendiente de pago");
+        if (estado != EstadoReserva.PENDIENTE_PAGO) throw new ConflictoException("La reserva no está pendiente de pago");
         estado = EstadoReserva.CONFIRMADA;
     }
 
@@ -88,7 +99,7 @@ public class Reserva {
     }
 
     public void cancelar() {
-        if (estado == EstadoReserva.CONFIRMADA) throw new ReglaNegocioException("Una reserva pagada se gestiona por reembolso");
+        if (estado == EstadoReserva.CONFIRMADA) throw new ConflictoException("Una reserva pagada se gestiona por reembolso");
         estado = EstadoReserva.CANCELADA;
     }
 

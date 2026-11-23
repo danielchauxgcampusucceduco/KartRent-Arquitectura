@@ -2,6 +2,7 @@ package co.kartrent.infraestructura.persistencia;
 
 import co.kartrent.aplicacion.puertos.RepositorioFacturacion;
 import co.kartrent.dominio.facturacion.Factura;
+import co.kartrent.dominio.facturacion.MetodoPago;
 import co.kartrent.dominio.facturacion.Pago;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -14,7 +15,7 @@ import java.util.UUID;
 public class RepositorioFacturacionJdbc implements RepositorioFacturacion {
     private final JdbcClient jdbc;
     private static final RowMapper<Pago> PAGO = (rs, i) -> new Pago(rs.getString("referencia"),
-            Jdbc.uuid(rs, "codigo_reserva"), rs.getBigDecimal("monto"), rs.getString("metodo"), rs.getBoolean("aprobado"),
+            Jdbc.uuid(rs, "codigo_reserva"), rs.getBigDecimal("monto"), MetodoPago.valueOf(rs.getString("metodo")), rs.getBoolean("aprobado"),
             Jdbc.fechaHora(rs, "fecha_pago"));
     private static final RowMapper<Factura> FACTURA = (rs, i) -> new Factura(rs.getString("numero"), rs.getString("cufe"),
             Jdbc.uuid(rs, "codigo_reserva"), Jdbc.fechaHora(rs, "fecha_emision"), rs.getBigDecimal("subtotal"),
@@ -33,7 +34,7 @@ public class RepositorioFacturacionJdbc implements RepositorioFacturacion {
                             INSERT INTO pagos (referencia, codigo_reserva, monto, metodo, aprobado, fecha_pago)
                             VALUES (:ref, :reserva, :monto, :metodo, :aprobado, :fecha)""")
                     .param("ref", p.referenciaPasarela()).param("reserva", p.codigoReserva()).param("monto", p.monto())
-                    .param("metodo", p.metodo()).param("aprobado", p.aprobado()).param("fecha", p.fechaPago()).update();
+                    .param("metodo", p.metodo().name()).param("aprobado", p.aprobado()).param("fecha", p.fechaPago()).update();
         }
     }
 

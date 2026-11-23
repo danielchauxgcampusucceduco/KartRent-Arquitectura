@@ -56,8 +56,8 @@ public class ConfiguracionCasosDeUso {
     }
 
     @Bean
-    ConsultarFlota consultarFlota(RepositorioKarts k) {
-        return new ConsultarFlota(k);
+    ConsultarFlota consultarFlota(RepositorioKarts k, ParametrosOperacion p) {
+        return new ConsultarFlota(k, p);
     }
 
     @Bean
@@ -87,8 +87,8 @@ public class ConfiguracionCasosDeUso {
 
     @Bean
     ConfigurarOperacion configurarOperacion(RepositorioTarifas t, RepositorioSesiones s, ParametrosOperacion p,
-                                            UnidadDeTrabajo uow) {
-        return new ConfigurarOperacion(t, s, p, uow);
+                                            UnidadDeTrabajo uow, Clock reloj) {
+        return new ConfigurarOperacion(t, s, p, uow, reloj);
     }
 
     @Bean

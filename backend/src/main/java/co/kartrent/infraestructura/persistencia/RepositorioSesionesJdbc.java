@@ -1,6 +1,7 @@
 package co.kartrent.infraestructura.persistencia;
 
 import co.kartrent.aplicacion.puertos.RepositorioSesiones;
+import co.kartrent.dominio.flota.TipoKart;
 import co.kartrent.dominio.pista.AsignacionKart;
 import co.kartrent.dominio.pista.EstadoSesion;
 import co.kartrent.dominio.pista.SesionPista;
@@ -39,7 +40,7 @@ public class RepositorioSesionesJdbc implements RepositorioSesiones {
                             VALUES (:codigo, :hora, :dur, :max, :vendidos, :tipo, :estado, :ini, :fin)""")
                     .param("codigo", s.getCodigo()).param("hora", s.getHoraInicioProgramada())
                     .param("dur", s.getDuracionMinutos()).param("max", s.getCuposMaximos())
-                    .param("vendidos", s.getCuposVendidos()).param("tipo", s.getTipoKart())
+                    .param("vendidos", s.getCuposVendidos()).param("tipo", s.getTipoKart().name())
                     .param("estado", s.getEstado().name()).param("ini", s.getInicioReal()).param("fin", s.getFinReal())
                     .update();
         }
@@ -109,7 +110,7 @@ public class RepositorioSesionesJdbc implements RepositorioSesiones {
         return jdbc.sql("SELECT * FROM sesiones WHERE codigo = :c").param("c", codigo)
                 .query((rs, i) -> new SesionPista(rs.getString("codigo"), Jdbc.fechaHora(rs, "hora_inicio"),
                         rs.getInt("duracion_minutos"), rs.getInt("cupos_maximos"), rs.getInt("cupos_vendidos"),
-                        rs.getString("tipo_kart"), EstadoSesion.valueOf(rs.getString("estado")),
+                        TipoKart.valueOf(rs.getString("tipo_kart")), EstadoSesion.valueOf(rs.getString("estado")),
                         Jdbc.fechaHora(rs, "inicio_real"), Jdbc.fechaHora(rs, "fin_real"), asignaciones))
                 .single();
     }

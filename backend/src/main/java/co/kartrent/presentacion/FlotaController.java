@@ -3,7 +3,6 @@ package co.kartrent.presentacion;
 import co.kartrent.aplicacion.administracion.ConfigurarOperacion;
 import co.kartrent.aplicacion.flota.ConsultarFlota;
 import co.kartrent.aplicacion.flota.GestionarOrdenes;
-import co.kartrent.aplicacion.puertos.ParametrosOperacion;
 import co.kartrent.presentacion.Dtos.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,19 +20,16 @@ public class FlotaController {
     private final ConsultarFlota flota;
     private final GestionarOrdenes ordenes;
     private final ConfigurarOperacion configurar;
-    private final ParametrosOperacion parametros;
 
-    public FlotaController(ConsultarFlota flota, GestionarOrdenes ordenes, ConfigurarOperacion configurar,
-                           ParametrosOperacion parametros) {
+    public FlotaController(ConsultarFlota flota, GestionarOrdenes ordenes, ConfigurarOperacion configurar) {
         this.flota = flota;
         this.ordenes = ordenes;
         this.configurar = configurar;
-        this.parametros = parametros;
     }
 
     @GetMapping("/flota/karts")
     public List<KartDto> karts() {
-        double umbral = parametros.umbralHorasPreventivo();
+        double umbral = flota.umbralHoras();
         return flota.todos().stream().map(k -> KartDto.de(k, umbral)).toList();
     }
 

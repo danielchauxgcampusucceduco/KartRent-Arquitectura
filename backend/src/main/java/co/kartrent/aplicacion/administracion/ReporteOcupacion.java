@@ -37,7 +37,7 @@ public class ReporteOcupacion {
     private Linea linea(SesionPista s) {
         BigDecimal ingresos = reservas.confirmadasPorSesion(s.getCodigo()).stream()
                 .map(Reserva::getValorTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new Linea(s.getCodigo(), s.getHoraInicioProgramada().toString(), s.getTipoKart(), s.getCuposMaximos(),
+        return new Linea(s.getCodigo(), s.getHoraInicioProgramada().toString(), s.getTipoKart().name(), s.getCuposMaximos(),
                 s.getCuposVendidos(), porcentaje(s.getCuposVendidos(), s.getCuposMaximos()), ingresos);
     }
 

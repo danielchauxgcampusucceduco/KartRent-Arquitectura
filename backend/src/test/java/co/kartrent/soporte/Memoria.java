@@ -3,7 +3,9 @@ package co.kartrent.soporte;
 import co.kartrent.aplicacion.puertos.*;
 import co.kartrent.dominio.eventos.EventoDominio;
 import co.kartrent.dominio.facturacion.Factura;
+import co.kartrent.dominio.facturacion.MetodoPago;
 import co.kartrent.dominio.facturacion.Pago;
+import co.kartrent.dominio.flota.TipoKart;
 import co.kartrent.dominio.flota.Kart;
 import co.kartrent.dominio.flota.Mecanico;
 import co.kartrent.dominio.flota.OrdenMantenimiento;
@@ -86,8 +88,8 @@ public final class Memoria {
     public static class Tarifas implements RepositorioTarifas {
         public final List<Tarifa> datos = new ArrayList<>();
         public void guardar(Tarifa t) { datos.add(t); }
-        public Optional<Tarifa> vigente(String tipo, LocalDate f) {
-            return datos.stream().filter(t -> t.tipoKart().equals(tipo) && t.estaVigente(f))
+        public Optional<Tarifa> vigente(TipoKart tipo, LocalDate f) {
+            return datos.stream().filter(t -> t.tipoKart() == tipo && t.estaVigente(f))
                     .max(Comparator.comparing(Tarifa::vigenteDesde));
         }
         public List<Tarifa> listar() { return datos; }
@@ -116,9 +118,12 @@ public final class Memoria {
     public static class PasarelaAprobadora implements PasarelaPagos {
         public boolean aprobar = true;
         public int cobros = 0;
-        public ResultadoPago cobrar(String referencia, BigDecimal monto, String metodo) {
+        public ResultadoPago cobrar(String referencia, BigDecimal monto, MetodoPago metodo) {
             cobros++;
             return new ResultadoPago(aprobar, referencia, aprobar ? "APROBADA" : "RECHAZADA");
+        }
+        public NotificacionPago interpretarNotificacion(String cuerpo, String firma) {
+            throw new UnsupportedOperationException("El webhook se prueba con la pasarela simulada");
         }
     }
 

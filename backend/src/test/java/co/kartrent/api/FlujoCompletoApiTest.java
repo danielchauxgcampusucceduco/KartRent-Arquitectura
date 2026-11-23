@@ -2,7 +2,11 @@ package co.kartrent.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import co.kartrent.infraestructura.pagos.VerificadorFirmaWebhook;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,11 +29,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest(properties = "kartrent.demo=false")
 @AutoConfigureMockMvc
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class FlujoCompletoApiTest {
     @Autowired
     MockMvc mvc;
     @Autowired
     ObjectMapper json;
+    @Autowired
+    VerificadorFirmaWebhook firma;
 
     private ResultActions post(String url, String cuerpo) throws Exception {
         return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(url)
@@ -41,6 +48,7 @@ class FlujoCompletoApiTest {
     }
 
     @Test
+    @Order(1)
     void recorridoCompletoDeUnaTanda() throws Exception {
         LocalDateTime inicio = LocalDateTime.now(ZoneId.of("America/Bogota")).plusHours(2).truncatedTo(ChronoUnit.MINUTES);
 
@@ -66,14 +74,15 @@ class FlujoCompletoApiTest {
         JsonNode pago = leer(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .post("/api/v1/reservas/" + codigo + "/pagos").header("Idempotency-Key", "k-1")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"metodo\":\"TARJETA\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.reserva.estado").value("CONFIRMADA")));
         assertThat(pago.get("factura").get("cufe").asText()).hasSize(96);
 
-        // Mismo Idempotency-Key: misma factura, sin doble cobro
+        // Mismo Idempotency-Key: misma factura, sin doble cobro y con 200 (no se creó un pago nuevo)
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .post("/api/v1/reservas/" + codigo + "/pagos").header("Idempotency-Key", "k-1")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"metodo\":\"TARJETA\"}"))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.factura.numero").value(pago.get("factura").get("numero").asText()));
 
         // HU-02: parrilla, RN-04 y asignación
@@ -83,7 +92,7 @@ class FlujoCompletoApiTest {
 
         post("/api/v1/sesiones/T-TEST/asignaciones", """
                 {"codigoReserva":"%s","documentoPiloto":"1085999001","numeroKart":7}""".formatted(codigo))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value("Kart 7 no disponible"));
 
         post("/api/v1/sesiones/T-TEST/asignaciones", """
@@ -120,7 +129,7 @@ class FlujoCompletoApiTest {
         post("/api/v1/ordenes/" + orden + "/asignacion", "{\"codigoMecanico\":\"M-02\"}")
                 .andExpect(jsonPath("$.codigoMecanico").value("M-02"));
         post("/api/v1/ordenes/" + orden + "/cierre", "{\"codigoMecanico\":\"M-01\",\"observaciones\":\"x\"}")
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isConflict());
         post("/api/v1/ordenes/" + orden + "/cierre", "{\"codigoMecanico\":\"M-02\",\"observaciones\":\"Cambio de bujía\"}")
                 .andExpect(jsonPath("$.estado").value("CERRADA"));
 
@@ -136,10 +145,83 @@ class FlujoCompletoApiTest {
     }
 
     @Test
+    @Order(3)
     void validacionYSeguridadDelWebhook() throws Exception {
         post("/api/v1/clientes", "{\"documento\":\"\",\"nombre\":\"\"}").andExpect(status().isBadRequest());
         post("/api/v1/pagos/webhook", "{\"referencia\":\"KR-x\",\"aprobado\":true}")
                 .andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/sesiones/NO-EXISTE")).andExpect(status().isNotFound());
+    }
+
+    /** Contrato de errores del material: 400 datos inválidos, 404 no existe, 409 conflicto con el estado, 401 firma. */
+    @Test
+    @Order(2)
+    void contratoDeErroresHttp() throws Exception {
+        LocalDateTime inicio = LocalDateTime.now(ZoneId.of("America/Bogota")).plusHours(3).truncatedTo(ChronoUnit.MINUTES);
+
+        // 400: JSON mal formado, enum desconocido, UUID mal formado y validaciones de campos
+        post("/api/v1/tarifas", "{no es json").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Cuerpo de la petición ilegible"));
+        post("/api/v1/tarifas", "{\"tipoKart\":\"BANANA\",\"valorPorCupo\":1000}").andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/reservas/no-es-uuid")).andExpect(status().isBadRequest());
+        post("/api/v1/sesiones", "{\"codigo\":\"T-PASADA\",\"inicio\":\"2020-01-01T10:00:00\",\"duracionMinutos\":10,"
+                + "\"cupos\":4,\"tipoKart\":\"ADULTO\"}").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("La tanda debe programarse a futuro"));
+
+        // 404: recurso inexistente y ruta inexistente conservan su código
+        post("/api/v1/reservas", "{\"documentoCliente\":\"0000\",\"codigoSesion\":\"T-ERR\",\"cupos\":1}")
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.title").value("Recurso no encontrado"));
+        mvc.perform(get("/api/v1/no-existe")).andExpect(status().isNotFound());
+        mvc.perform(delete("/api/v1/reservas")).andExpect(status().isMethodNotAllowed());
+
+        // 409: duplicados y cupos insuficientes
+        post("/api/v1/sesiones", """
+                {"codigo":"T-ERR","inicio":"%s","duracionMinutos":10,"cupos":2,"tipoKart":"ADULTO"}""".formatted(inicio))
+                .andExpect(status().isCreated());
+        post("/api/v1/sesiones", """
+                {"codigo":"T-ERR","inicio":"%s","duracionMinutos":10,"cupos":2,"tipoKart":"ADULTO"}""".formatted(inicio))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.title").value("Conflicto con el estado actual"));
+        String cliente = """
+                {"documento":"1085999002","nombre":"Mateo Ruiz","correo":"mateo@example.com","telefono":"3000000000",
+                 "fechaNacimiento":"1999-05-20","aceptaExoneracion":true}""";
+        post("/api/v1/clientes", cliente).andExpect(status().isCreated());
+        post("/api/v1/clientes", cliente).andExpect(status().isConflict());
+        post("/api/v1/reservas", "{\"documentoCliente\":\"1085999002\",\"codigoSesion\":\"T-ERR\",\"cupos\":3}")
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.detail").value("Cupos insuficientes"));
+
+        // Reserva, factura aún inexistente (404 Problem Details) y pago rechazado que se puede reintentar
+        String codigo = leer(post("/api/v1/reservas",
+                "{\"documentoCliente\":\"1085999002\",\"codigoSesion\":\"T-ERR\",\"cupos\":1}")
+                .andExpect(status().isCreated())).get("codigo").asText();
+        mvc.perform(get("/api/v1/reservas/" + codigo + "/factura")).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Recurso no encontrado"));
+        pagar(codigo, "SIMULAR_RECHAZO", "k-rechazo").andExpect(status().isCreated())
+                .andExpect(jsonPath("$.pago.aprobado").value(false))
+                .andExpect(jsonPath("$.reserva.estado").value("PENDIENTE_PAGO"))
+                .andExpect(jsonPath("$.factura").doesNotExist());
+        pagar(codigo, "TARJETA", "k-reintento").andExpect(status().isCreated())
+                .andExpect(jsonPath("$.pago.aprobado").value(true))
+                .andExpect(jsonPath("$.reserva.estado").value("CONFIRMADA"));
+        mvc.perform(get("/api/v1/reservas/" + codigo + "/factura")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.cufe").isNotEmpty());
+        pagar(codigo, "TARJETA", "k-otra-clave").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("La reserva no está pendiente de pago"));
+
+        // Webhook: firma válida con cuerpo ilegible = 400; referencia desconocida = 404; sin firma = 401
+        String ilegible = "esto no es json";
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/pagos/webhook")
+                .header("X-Firma", firma.firmar(ilegible)).contentType(MediaType.APPLICATION_JSON).content(ilegible))
+                .andExpect(status().isBadRequest());
+        String desconocida = "{\"referencia\":\"KR-no-existe\",\"aprobado\":true}";
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/pagos/webhook")
+                .header("X-Firma", firma.firmar(desconocida)).contentType(MediaType.APPLICATION_JSON).content(desconocida))
+                .andExpect(status().isNotFound());
+        post("/api/v1/pagos/webhook", desconocida).andExpect(status().isUnauthorized());
+    }
+
+    private ResultActions pagar(String codigo, String metodo, String clave) throws Exception {
+        return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/v1/reservas/" + codigo + "/pagos").header("Idempotency-Key", clave)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"metodo\":\"" + metodo + "\"}"));
     }
 }

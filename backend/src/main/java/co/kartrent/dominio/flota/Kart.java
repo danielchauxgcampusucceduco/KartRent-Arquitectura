@@ -1,5 +1,6 @@
 package co.kartrent.dominio.flota;
 
+import co.kartrent.dominio.comun.ConflictoException;
 import co.kartrent.dominio.comun.ReglaNegocioException;
 
 /**
@@ -25,17 +26,19 @@ public abstract class Kart {
         this.codigoTransponder = codigoTransponder;
     }
 
-    public static Kart reconstruir(String tipo, int numero, EstadoKart estado, double km, double horas,
+    public static Kart reconstruir(TipoKart tipo, int numero, EstadoKart estado, double km, double horas,
                                    double horasServicio, String transponder) {
         return switch (tipo) {
-            case KartAdulto.TIPO -> new KartAdulto(numero, estado, km, horas, horasServicio, transponder);
-            case KartInfantil.TIPO -> new KartInfantil(numero, estado, km, horas, horasServicio, transponder);
-            default -> throw new ReglaNegocioException("Tipo de kart desconocido: " + tipo);
+            case ADULTO -> new KartAdulto(numero, estado, km, horas, horasServicio, transponder);
+            case INFANTIL -> new KartInfantil(numero, estado, km, horas, horasServicio, transponder);
         };
     }
 
-    public abstract int edadMinimaPiloto();
-    public abstract String tipo();
+    public abstract TipoKart tipo();
+
+    public int edadMinimaPiloto() {
+        return tipo().edadMinima();
+    }
 
     public boolean estaDisponible() {
         return estado == EstadoKart.DISPONIBLE;
@@ -44,7 +47,7 @@ public abstract class Kart {
     /** RN-04: solo un kart disponible sale a pista. */
     public void ponerEnPista() {
         if (!estaDisponible()) {
-            throw new ReglaNegocioException("Kart " + numeroKart + " no disponible");
+            throw new ConflictoException("Kart " + numeroKart + " no disponible");
         }
         estado = EstadoKart.EN_PISTA;
     }
