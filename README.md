@@ -79,6 +79,10 @@ Sin credenciales, una ruta protegida responde **401**; con un rol sin permiso, *
    - Si cierra `M-01`, se rechaza (RN-10). Si cierra `M-02`, el kart vuelve a DISPONIBLE con el contador en 0.
 6. **Administración (HU-05).** Entrar como `admin`: tarifas, tandas, cancelar una tanda, umbral y gráfico de ocupación (RN-13).
 
+## Diapositivas
+
+La exposición está en [`diapositivas`](diapositivas): `KartRent.html` (se abre en cualquier navegador; flechas o clic para avanzar, clic en un diagrama para ampliarlo, `F` para pantalla completa) y `KartRent.pptx` (la misma presentación en PowerPoint). Ambas tienen siete diapositivas: portada, las cinco vistas y cierre.
+
 ## Arquitectura (cinco vistas)
 
 Las fuentes PlantUML están en [`diagramas/plantuml`](diagramas/plantuml) y son la **fuente de verdad**; la CI las renderiza (PNG y SVG) y publica las imágenes en [`diagramas/render`](diagramas/render); si una fuente tiene un error de sintaxis, la CI falla. El archivo [`diagramas/KartRent.vpp`](diagramas/KartRent.vpp) (Visual Paradigm) y las exportaciones de [`diagramas/img`](diagramas/img) son la versión dibujada a mano.
