@@ -70,6 +70,37 @@ Las fuentes PlantUML están en [`diagramas/plantuml`](diagramas/plantuml). La CI
 | Desarrollo | `04_desarrollo.puml` | Paquetes de arquitectura limpia; las dependencias apuntan al núcleo |
 | Despliegue | `05_despliegue.puml` | Contenedores nginx, Spring Boot y PostgreSQL, decodificador de meta y pasarela |
 
+### Diagramas en Visual Paradigm
+
+Proyecto `KartRent.vpp`; las imágenes están en [`diagramas/img`](diagramas/img).
+
+#### 1. Vista de contexto
+Actores humanos y sistemas externos que intercambian información con KartRent.
+
+![Vista de contexto](diagramas/img/01_contexto.png)
+
+#### 2. Vista funcional (componentes)
+Cinco componentes con su base de datos, interfaces provistas (lollipop) y requeridas (socket), adaptadores y sistemas externos.
+
+![Vista funcional](diagramas/img/02_funcional.png)
+
+#### 3. Vista lógica (modelo de dominio)
+Clases del paquete `co.kartrent.dominio` con atributos, operaciones, herencias y asociaciones.
+
+![Vista lógica](diagramas/img/03_logica.png)
+
+#### 4. Vista de desarrollo (paquetes)
+Capas de la arquitectura limpia, sus subpaquetes y las dependencias, que siempre apuntan hacia el dominio.
+
+![Vista de desarrollo](diagramas/img/04_desarrollo.png)
+
+#### 5. Vista de despliegue
+Dispositivos de usuario, servidor Docker (frontend, backend y PostgreSQL), hardware de cronometraje y pasarela de pagos.
+
+![Vista de despliegue](diagramas/img/05_despliegue.png)
+
+### Estructura del código
+
 ```text
 backend/src/main/java/co/kartrent
 ├── dominio/          ← núcleo: entidades y reglas (sin Spring, sin SQL)
