@@ -79,7 +79,7 @@ Sin credenciales, una ruta protegida responde **401**; con un rol sin permiso, *
    - Si cierra `M-01`, se rechaza (RN-10). Si cierra `M-02`, el kart vuelve a DISPONIBLE con el contador en 0.
 6. **Administración (HU-05).** Entrar como `admin`: tarifas, tandas, cancelar una tanda, umbral y gráfico de ocupación (RN-13).
 
-## Arquitectura (modelo 4+1)
+## Arquitectura (cinco vistas)
 
 Las fuentes PlantUML están en [`diagramas/plantuml`](diagramas/plantuml) y son la **fuente de verdad**; la CI las renderiza (PNG y SVG) y publica las imágenes en [`diagramas/render`](diagramas/render); si una fuente tiene un error de sintaxis, la CI falla. El archivo [`diagramas/KartRent.vpp`](diagramas/KartRent.vpp) (Visual Paradigm) y las exportaciones de [`diagramas/img`](diagramas/img) son la versión dibujada a mano.
 
@@ -90,15 +90,12 @@ Las fuentes PlantUML están en [`diagramas/plantuml`](diagramas/plantuml) y son 
 | Lógica | `03_logica.puml` | Modelo de dominio con multiplicidades, herencia, clase abstracta y enumeraciones |
 | Desarrollo | `04_desarrollo.puml` | Paquetes: controladores → casos de uso → puertos ← adaptadores, y la seguridad |
 | Despliegue | `05_despliegue.puml` | Dispositivos, `«executionEnvironment»` (navegador, Docker, nginx, JRE, PostgreSQL), puertos y protocolos |
-| Secuencia | `06_secuencia_reservar.puml`, `07_secuencia_pagar.puml` | `POST /reservas` y `POST /reservas/{codigo}/pagos` con éxito (200/201) y errores (400, 404, 409) |
 
 ![Vista de contexto](diagramas/render/01_contexto.png)
 ![Vista funcional](diagramas/render/02_funcional.png)
 ![Vista lógica](diagramas/render/03_logica.png)
 ![Vista de desarrollo](diagramas/render/04_desarrollo.png)
 ![Vista de despliegue](diagramas/render/05_despliegue.png)
-![Secuencia de reservar](diagramas/render/06_secuencia_reservar.png)
-![Secuencia de pagar](diagramas/render/07_secuencia_pagar.png)
 
 En el despliegue, la pasarela de pagos real y el decodificador de meta son un **escenario hipotético**: en esta entrega la pasarela es la clase `PasarelaPagosSimulada` dentro del backend y el decodificador lo imita la pantalla *En vivo*.
 

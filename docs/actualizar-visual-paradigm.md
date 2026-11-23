@@ -41,7 +41,3 @@ Sin cambios: ya coincide con `02_funcional.puml`.
 - El enlace del decodificador → «HTTP POST /api/v1/telemetria/pasos (usuario cronometraje)».
 - Marcar **Decodificador de meta** y **Pasarela de pagos (Wompi / PayU)** como «escenario hipotético», con una nota: en la entrega la pasarela es `PasarelaPagosSimulada` dentro del backend y el decodificador lo imita la pantalla *En vivo*.
 - Quitar `firmware-decoder` como artefacto real o indicar que es hipotético.
-
-## Diagramas nuevos (crearlos en VP)
-- **06 · Secuencia de `POST /api/v1/reservas`** (fuente: `06_secuencia_reservar.puml`): éxito `201` y errores `404`, `409` y `400`.
-- **07 · Secuencia de `POST /api/v1/reservas/{codigo}/pagos`** (fuente: `07_secuencia_pagar.puml`): `201` aprobado y rechazado, `200` repetición, `404` y `409`, con las tres fases del pago.

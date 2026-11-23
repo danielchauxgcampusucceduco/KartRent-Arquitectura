@@ -91,7 +91,7 @@ jobs:
       - run: docker compose build
 
   diagramas:
-    name: Diagramas PlantUML (4+1)
+    name: Diagramas PlantUML (cinco vistas)
     runs-on: ubuntu-latest
     permissions:
       contents: write
