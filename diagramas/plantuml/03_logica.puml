@@ -92,12 +92,6 @@ class Factura <<Experto>> {
   + {static} emitir(numero, codigoReserva, totalConIva, nitEmisor, ahora) : Factura
   + {static} calcularIva(base : BigDecimal) : BigDecimal
 }
-interface PasarelaPagos <<Indirección>> <<Variaciones protegidas>> {
-  + cobrar(referencia : String, monto : BigDecimal, metodo : String) : ResultadoPago
-}
-class PasarelaPagosSimulada <<Fabricación pura>> {
-  + cobrar(referencia : String, monto : BigDecimal, metodo : String) : ResultadoPago
-}
 
 ' ================= Pista =================
 class SesionPista <<Experto>> <<Creador>> {
@@ -189,6 +183,17 @@ enum EstadoSesion {
   EN_CURSO
   FINALIZADA
 }
+enum TipoMantenimiento {
+  PREVENTIVO
+  CORRECTIVO
+}
+
+enum EstadoOrden {
+  ABIERTA
+  EN_PROCESO
+  CERRADA
+}
+
 enum EstadoKart {
   DISPONIBLE
   EN_PISTA
@@ -201,7 +206,6 @@ Persona <|-- Cliente
 Persona <|-- Mecanico
 Kart <|-- KartAdulto
 Kart <|-- KartInfantil
-PasarelaPagos <|.. PasarelaPagosSimulada
 
 Cliente "1" -- "0..*" Reserva : realiza >
 Reserva "0..*" --> "1" SesionPista : cupos en >
@@ -218,9 +222,10 @@ OrdenMantenimiento "0..*" --> "0..1" Mecanico : asignada a
 Reserva --> EstadoReserva
 SesionPista --> EstadoSesion
 Kart --> EstadoKart
+OrdenMantenimiento --> TipoMantenimiento
+OrdenMantenimiento --> EstadoOrden
 
 ReservarTanda ..> Reserva : <<crea>>
-PagarReserva ..> PasarelaPagos
 PagarReserva ..> Factura : <<emite>>
 ControlarSesion ..> SesionPista
 RegistrarPaso ..> AsignacionKart

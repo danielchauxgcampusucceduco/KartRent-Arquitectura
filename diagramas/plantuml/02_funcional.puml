@@ -2,80 +2,25 @@
 skinparam shadowing false
 skinparam defaultFontName Arial
 skinparam componentStyle uml2
-skinparam nodesep 40
-skinparam ranksep 55
 skinparam component {
   BackgroundColor #7FD3F7
   BorderColor #1F2733
 }
-skinparam interface {
-  BackgroundColor #7FD3F7
-  BorderColor #1F2733
-}
-title Vista funcional - Componentes de KartRent
+title Vista funcional - Componentes de negocio KartRent
 
-' ===== Persistencia (fila superior) =====
-component "BD Reservas\ny Clientes" as BDR
-component "BD Pista" as BDP
-component "BD Flota" as BDF
-component "BD Facturación" as BDFA
+component "Gestión de Pista y Telemetría" as PIS
+component "Gestión de Reservas y Clientes" as RES
+component "Gestión de Flota y Mantenimiento" as FLO
+component "Configuración y Reportes" as CFG
+component "Gestión de Pagos y Facturación" as PAG
+component "Notificaciones" as NOT
 
-' ===== Componentes de negocio =====
-component "Reservas y Clientes" as RES
-component "Control de Pista\ny Telemetría" as PIS
-component "Flota y\nMantenimiento" as FLO
-component "Pagos y Facturación" as PAG
-component "Notificaciones\ny Eventos en vivo" as NOT
-
-BDR <.. RES : SQL
-BDP <.. PIS : SQL
-BDF <.. FLO : SQL
-BDFA <.. PAG : SQL
-
-' ===== Interfaces provistas (servicio / gestión) =====
-interface "ReservarTanda\n<<service>>" as I_RES
-interface "ConfigurarTarifas\n<<management>>" as I_TAR
-interface "ConsultarCupos\n<<service>>" as I_CUP
-interface "ControlarSesion\n<<service>>" as I_CTL
-interface "CronometroEnVivo\n<<service>>" as I_CRO
-interface "RegistrarPaso\n<<service>>" as I_PAS
-interface "ConsultarDisponibilidad\n<<service>>" as I_DIS
-interface "RegistrarUso\n<<service>>" as I_USO
-interface "GestionarOrdenes\n<<management>>" as I_ORD
-interface "ProcesarPago\n<<service>>" as I_PAG
-interface "Notificar\n<<service>>" as I_NOT
-
-RES -- I_RES
-RES -- I_TAR
-PIS -- I_CUP
-PIS -- I_CTL
-PIS -- I_CRO
-note right of I_CRO : WebSocket STOMP\n/topic/sesiones/{codigo}/clasificacion
-PIS -- I_PAS
-FLO -- I_DIS
-FLO -- I_USO
-FLO -- I_ORD
-PAG -- I_PAG
-NOT -- I_NOT
-
-' ===== Interfaces requeridas =====
-RES ..> I_CUP : consulta cupos
-RES ..> I_PAG : solicita cobro
-RES ..> I_NOT : confirma reserva
-PIS ..> I_DIS : karts operativos
-PIS ..> I_USO : reporta horas/km
-FLO ..> I_NOT : alerta al taller
-
-' ===== Adaptadores y sistemas externos =====
-component "Adaptador de pasarela" as ADP
-component "Ingestor de telemetría" as ING
-component "Pasarela de Pagos\n(Wompi / PayU)" as EXP
-component "Decodificador de\ncronometraje" as EXT
-component "Correo / WhatsApp" as EXN
-
-PAG ..> ADP
-ADP ..> EXP : API REST
-EXT ..> ING : HTTP POST /telemetria/pasos
-ING ..> I_PAS : registra pasos
-NOT ..> EXN : SMTP / API REST
+PIS ..> RES : Consulta pilotos con reserva confirmada
+PIS ..> FLO : Consulta karts disponibles y reporta uso
+RES ..> CFG : Consulta tarifas y tandas programadas
+FLO ..> CFG : Consulta umbral de mantenimiento
+RES ..> PAG : Solicita cobro de la reserva
+CFG ..> PAG : Consulta ingresos para reportes
+PAG ..> NOT : Solicita envío de confirmación y factura
+FLO ..> NOT : Solicita alerta al taller
 @enduml

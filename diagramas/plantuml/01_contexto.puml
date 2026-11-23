@@ -35,6 +35,6 @@ SYS --> MEC : Órdenes preventivas\ny alertas de desgaste [HU-04]
 SYS <-- MEC : Cierre de orden\ny kart habilitado [HU-04]
 SYS --> PAS : Solicitud de cobro [HU-01]
 SYS <-- PAS : Resultado de la\ntransacción (webhook) [HU-01]
-SYS --> TRA : Vínculo transponder-kart\ny configuración de bucles [HU-02]
+SYS --> TRA : Vínculo transponder-kart\ny configuración de bucles [HU-03]
 SYS <-- TRA : Pasos por bucle\n(transponder, hora) [HU-03]
 @enduml

@@ -65,8 +65,8 @@ Las fuentes PlantUML están en [`diagramas/plantuml`](diagramas/plantuml). La CI
 | Vista | Archivo | Qué muestra |
 | --- | --- | --- |
 | Contexto | `01_contexto.puml` | Actores y sistemas externos, con cada flujo etiquetado con su HU |
-| Funcional | `02_funcional.puml` | Cinco componentes, interfaces provistas (`<<service>>`/`<<management>>`) y requeridas, y adaptadores externos |
-| Lógica | `03_logica.puml` | Modelo de dominio con estereotipos GRASP, igual que el código en `co.kartrent.dominio` |
+| Funcional | `02_funcional.puml` | Seis componentes de negocio y sus dependencias etiquetadas (sin infraestructura) |
+| Lógica | `03_logica.puml` | Modelo de dominio con multiplicidades, herencia, clase abstracta y enumeraciones |
 | Desarrollo | `04_desarrollo.puml` | Clases de implementación: controladores → casos de uso → puertos ← adaptadores |
 | Despliegue | `05_despliegue.puml` | Contenedores nginx, Spring Boot y PostgreSQL, decodificador de meta y pasarela |
 
@@ -75,17 +75,17 @@ Las fuentes PlantUML están en [`diagramas/plantuml`](diagramas/plantuml). La CI
 Proyecto [`diagramas/KartRent.vpp`](diagramas/KartRent.vpp) (se abre con Visual Paradigm); las imágenes están en [`diagramas/img`](diagramas/img).
 
 #### 1. Vista de contexto
-Actores humanos y sistemas externos que intercambian información con KartRent.
+Actores humanos y sistemas externos que intercambian información con KartRent. Cada flujo lleva la historia de usuario que lo origina (`[HU-01]` … `[HU-05]`), para trazar requisitos → arquitectura.
 
 ![Vista de contexto](diagramas/img/01_contexto.png)
 
 #### 2. Vista funcional (componentes)
-Cinco componentes con su base de datos, interfaces provistas (lollipop) y requeridas (socket), adaptadores y sistemas externos.
+Seis componentes `<<component>>` que agrupan responsabilidades de negocio. Cada dependencia (línea punteada) dice qué servicio o información necesita un componente de otro, por ejemplo *Gestión de Reservas y Clientes → Solicita cobro de la reserva → Gestión de Pagos y Facturación*. Las bases de datos, la pasarela y el decodificador no aparecen aquí porque son infraestructura y se muestran en las vistas de contexto y despliegue.
 
 ![Vista funcional](diagramas/img/02_funcional.png)
 
 #### 3. Vista lógica (modelo de dominio)
-Clases del paquete `co.kartrent.dominio` con atributos, operaciones, herencias y asociaciones.
+Clases del paquete `co.kartrent.dominio` con atributos, operaciones, asociaciones con nombre y **multiplicidad** (p. ej. una `Reserva` registra `0..*` pagos y genera `0..1` factura), herencia (`Persona` es **abstracta**; `Cliente` y `Mecanico` heredan de ella; `KartAdulto` y `KartInfantil` de `Kart`) y las enumeraciones `EstadoKart`, `EstadoReserva`, `EstadoSesion`, `TipoMantenimiento` y `EstadoOrden`.
 
 ![Vista lógica](diagramas/img/03_logica.png)
 
