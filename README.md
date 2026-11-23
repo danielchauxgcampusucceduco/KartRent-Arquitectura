@@ -72,7 +72,7 @@ Las fuentes PlantUML están en [`diagramas/plantuml`](diagramas/plantuml). La CI
 
 ### Diagramas en Visual Paradigm
 
-Proyecto `KartRent.vpp`; las imágenes están en [`diagramas/img`](diagramas/img).
+Proyecto [`diagramas/KartRent.vpp`](diagramas/KartRent.vpp) (se abre con Visual Paradigm); las imágenes están en [`diagramas/img`](diagramas/img).
 
 #### 1. Vista de contexto
 Actores humanos y sistemas externos que intercambian información con KartRent.
