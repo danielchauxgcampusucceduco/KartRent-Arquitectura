@@ -99,6 +99,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Renderizar PNG y SVG (falla si algún diagrama tiene errores de sintaxis)
         run: |
+          mkdir -p diagramas/render && chmod 777 diagramas/render
           docker run --rm -v "$PWD/diagramas:/data" -w /data plantuml/plantuml:latest -failfast2 -tpng -o ../render plantuml/*.puml
           docker run --rm -v "$PWD/diagramas:/data" -w /data plantuml/plantuml:latest -failfast2 -tsvg -o ../render plantuml/*.puml
       - uses: actions/upload-artifact@v4
