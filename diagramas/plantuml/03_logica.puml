@@ -1,0 +1,228 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #FFF7D6
+  BorderColor #1F2733
+  ArrowColor #1F2733
+  StereotypeFontColor #8A5A00
+}
+hide empty members
+title Vista lógica - Modelo de dominio de KartRent (patrones GRASP)
+
+' ================= Controladores (casos de uso) =================
+class ReservarTanda <<Controlador>> {
+  + ejecutar(documento : String, codigoSesion : String, cupos : int) : Reserva
+}
+class PagarReserva <<Controlador>> {
+  + ejecutar(codigoReserva : UUID, metodo : String, claveIdempotencia : String) : Resultado
+  + confirmarDesdePasarela(referencia : String, aprobado : boolean) : Resultado
+}
+class ControlarSesion <<Controlador>> {
+  + parrilla(codigoSesion : String) : Parrilla
+  + asignarKart(codigoSesion : String, codigoReserva : UUID, documentoPiloto : String, numeroKart : int) : AsignacionKart
+  + iniciar(codigoSesion : String) : SesionPista
+  + finalizar(codigoSesion : String) : Cierre
+}
+class RegistrarPaso <<Controlador>> {
+  + ejecutar(codigoTransponder : String, marca : Instant) : Optional<VueltaRegistrada>
+}
+class GestionarOrdenes <<Controlador>> {
+  + asignar(numeroOrden : String, codigoMecanico : String) : OrdenMantenimiento
+  + cerrar(numeroOrden : String, codigoMecanico : String, observaciones : String) : OrdenMantenimiento
+}
+
+' ================= Personas =================
+abstract class Persona <<Experto>> {
+  # documento : String
+  # nombre : String
+  # correo : String
+  # telefono : String
+}
+class Cliente <<Experto>> {
+  - fechaNacimiento : LocalDate
+  - exoneracionFirmada : boolean
+  - fechaExoneracion : LocalDate
+  + firmarExoneracion(fecha : LocalDate) : void
+  + calcularEdad(hoy : LocalDate) : int
+  + puedeConducir(edadMinima : int, hoy : LocalDate) : boolean
+}
+class Mecanico <<Experto>> {
+  - codigoEmpleado : String
+  - especialidad : String
+  + puedeAtender(tipo : TipoMantenimiento) : boolean
+}
+
+' ================= Reservas y facturación =================
+class Reserva <<Experto>> <<Creador>> {
+  - codigo : UUID
+  - fechaCreacion : LocalDateTime
+  - cantidadCupos : int
+  - valorTotal : BigDecimal
+  - estado : EstadoReserva
+  - venceRetencion : LocalDateTime
+  + {static} crear(cliente, sesion, cupos, tarifa, ahora, retencion) : Reserva
+  + {static} calcularTotal(tarifaPorCupo : BigDecimal, cupos : int) : BigDecimal
+  + registrarPago(referencia : String, metodo : String, aprobado : boolean, ahora : LocalDateTime) : Pago
+  + confirmar(pago : Pago) : void
+  + expirar(ahora : LocalDateTime) : boolean
+  + cancelar() : void
+}
+class Tarifa <<Experto>> {
+  - tipoKart : String
+  - valorPorCupo : BigDecimal
+  - vigenteDesde : LocalDate
+}
+class Pago <<Experto>> {
+  - referenciaPasarela : String
+  - monto : BigDecimal
+  - metodo : String
+  - aprobado : boolean
+  - fechaPago : LocalDateTime
+  + esAprobado() : boolean
+}
+class Factura <<Experto>> {
+  - numero : String
+  - cufe : String
+  - fechaEmision : LocalDateTime
+  - subtotal : BigDecimal
+  - iva : BigDecimal
+  - total : BigDecimal
+  + {static} emitir(numero, codigoReserva, totalConIva, nitEmisor, ahora) : Factura
+  + {static} calcularIva(base : BigDecimal) : BigDecimal
+}
+interface PasarelaPagos <<Indirección>> <<Variaciones protegidas>> {
+  + cobrar(referencia : String, monto : BigDecimal, metodo : String) : ResultadoPago
+}
+class PasarelaPagosSimulada <<Fabricación pura>> {
+  + cobrar(referencia : String, monto : BigDecimal, metodo : String) : ResultadoPago
+}
+
+' ================= Pista =================
+class SesionPista <<Experto>> <<Creador>> {
+  - codigo : String
+  - horaInicioProgramada : LocalDateTime
+  - duracionMinutos : int
+  - cuposMaximos : int
+  - cuposVendidos : int
+  - tipoKart : String
+  - estado : EstadoSesion
+  + cuposDisponibles() : int
+  + reservarCupos(cantidad : int) : void
+  + liberarCupos(cantidad : int) : void
+  + asignarKart(codigoReserva : UUID, documento : String, nombre : String, edad : int, kart : Kart) : AsignacionKart
+  + iniciar(ahora : LocalDateTime) : void
+  + finalizar(ahora : LocalDateTime, longitudPistaM : double) : List<UsoKart>
+  + obtenerClasificacion() : List<LineaClasificacion>
+}
+class AsignacionKart <<Experto>> <<Creador>> {
+  - numeroParrilla : int
+  - codigoReserva : UUID
+  - documentoPiloto : String
+  - numeroKart : int
+  - codigoTransponder : String
+  - ultimoPaso : Instant
+  + registrarPaso(marca : Instant, tiempoMinimo : Duration) : Optional<VueltaTelemetria>
+  + mejorVuelta() : Optional<VueltaTelemetria>
+  + totalVueltas() : int
+}
+class VueltaTelemetria <<Experto>> {
+  - numeroVuelta : int
+  - marcaTiempo : Instant
+  - tiempoVuelta : Duration
+  + esValida(tiempoMinimo : Duration) : boolean
+  + velocidadPromedio(longitudPistaM : double) : double
+}
+
+' ================= Flota =================
+abstract class Kart <<Experto>> <<Polimorfismo>> {
+  - numeroKart : int
+  - estado : EstadoKart
+  - kilometraje : double
+  - horasMotor : double
+  - horasDesdeUltimoServicio : double
+  + estaDisponible() : boolean
+  + ponerEnPista() : void
+  + registrarUso(minutos : int, km : double) : void
+  + requiereMantenimiento(umbralHoras : double) : boolean
+  + bloquear() : void
+  + habilitar() : void
+  + {abstract} edadMinimaPiloto() : int
+}
+class KartAdulto <<Polimorfismo>> {
+  + edadMinimaPiloto() : int
+}
+class KartInfantil <<Polimorfismo>> {
+  + edadMinimaPiloto() : int
+  + edadMaximaPiloto() : int
+}
+class Transponder <<Experto>> {
+  - codigoTransponder : String
+  - nivelBateria : int
+  - activo : boolean
+  + vincular(kart : Kart) : void
+  + requiereCarga(umbral : int) : boolean
+}
+class OrdenMantenimiento <<Experto>> {
+  - numero : String
+  - tipo : TipoMantenimiento
+  - estado : EstadoOrden
+  - fechaApertura : LocalDateTime
+  - fechaCierre : LocalDateTime
+  - horasMotorAlAbrir : double
+  - observaciones : String
+  + {static} preventiva(numero : String, kart : Kart, ahora : LocalDateTime) : OrdenMantenimiento
+  + asignar(mecanico : Mecanico) : void
+  + cerrar(codigoMecanico : String, observaciones : String, kart : Kart, ahora : LocalDateTime) : void
+}
+
+enum EstadoReserva {
+  PENDIENTE_PAGO
+  CONFIRMADA
+  CANCELADA
+  EXPIRADA
+}
+enum EstadoSesion {
+  PROGRAMADA
+  EN_PARRILLA
+  EN_CURSO
+  FINALIZADA
+}
+enum EstadoKart {
+  DISPONIBLE
+  EN_PISTA
+  EN_MANTENIMIENTO
+  FUERA_DE_SERVICIO
+}
+
+' ================= Relaciones =================
+Persona <|-- Cliente
+Persona <|-- Mecanico
+Kart <|-- KartAdulto
+Kart <|-- KartInfantil
+PasarelaPagos <|.. PasarelaPagosSimulada
+
+Cliente "1" -- "0..*" Reserva : realiza >
+Reserva "0..*" --> "1" SesionPista : cupos en >
+Reserva ..> Tarifa : valora con
+Reserva "1" o-- "0..*" Pago : registra
+Reserva "1" -- "0..1" Factura : genera >
+SesionPista "1" *-- "0..*" AsignacionKart : parrilla
+AsignacionKart "1" *-- "0..*" VueltaTelemetria : vueltas
+AsignacionKart "0..*" --> "1" Kart : usa
+Kart "1" -- "0..1" Transponder : lleva >
+Kart "1" -- "0..*" OrdenMantenimiento : < atiende
+OrdenMantenimiento "0..*" --> "0..1" Mecanico : asignada a
+
+Reserva --> EstadoReserva
+SesionPista --> EstadoSesion
+Kart --> EstadoKart
+
+ReservarTanda ..> Reserva : <<crea>>
+PagarReserva ..> PasarelaPagos
+PagarReserva ..> Factura : <<emite>>
+ControlarSesion ..> SesionPista
+RegistrarPaso ..> AsignacionKart
+GestionarOrdenes ..> OrdenMantenimiento
+@enduml

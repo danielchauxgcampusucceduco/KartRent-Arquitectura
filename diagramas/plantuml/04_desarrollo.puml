@@ -1,0 +1,127 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam packageStyle folder
+skinparam package {
+  BackgroundColor<<nucleo>> #FFF7D6
+  BackgroundColor<<casos>> #E3EEFF
+  BackgroundColor<<adaptadores>> #DFF5F0
+  BackgroundColor<<web>> #ECE8FF
+  BorderColor #1F2733
+}
+skinparam ArrowColor #1F2733
+title Vista de desarrollo - Paquetes de KartRent (arquitectura limpia / puertos y adaptadores)
+
+package "frontend (React + TypeScript)" <<web>> as FE {
+  package "paginas" as FE_P {
+    [Piloto HU-01]
+    [Boxes HU-02]
+    [EnVivo HU-03]
+    [Taller HU-04]
+    [Admin HU-05]
+  }
+  [api.ts] as FE_API
+  [useEnVivo.ts (STOMP)] as FE_WS
+}
+
+package "co.kartrent.presentacion" <<web>> as PRES {
+  [ReservasController]
+  [PistaController]
+  [FlotaController]
+  [AdministracionController]
+  [Dtos]
+  [ManejadorErrores]
+}
+
+package "co.kartrent.aplicacion" <<casos>> as APP {
+  package "reservas" as A_RES {
+    [RegistrarCliente]
+    [ReservarTanda]
+    [PagarReserva]
+    [ExpirarReservas]
+  }
+  package "pista" as A_PIS {
+    [ControlarSesion]
+    [RegistrarPaso]
+  }
+  package "flota" as A_FLO {
+    [RegistrarUso]
+    [GestionarOrdenes]
+  }
+  package "administracion" as A_ADM {
+    [ConfigurarOperacion]
+    [ReporteOcupacion]
+  }
+  package "puertos" as PUERTOS {
+    interface RepositorioReservas
+    interface RepositorioSesiones
+    interface RepositorioKarts
+    interface "Repositorio*" as OTROS
+    interface PasarelaPagos
+    interface Notificador
+    interface PublicadorEventos
+    interface UnidadDeTrabajo
+  }
+}
+
+package "co.kartrent.dominio" <<nucleo>> as DOM {
+  package "reservas" as D_RES
+  package "pista" as D_PIS
+  package "flota" as D_FLO
+  package "facturacion" as D_FAC
+  package "eventos" as D_EVT
+  package "comun" as D_COM
+}
+
+package "co.kartrent.infraestructura" <<adaptadores>> as INF {
+  package "persistencia (JdbcClient)" as I_PER {
+    [Repositorio*Jdbc]
+    [ParametrosOperacionJdbc]
+  }
+  package "pagos" as I_PAG {
+    [PasarelaPagosSimulada]
+    [VerificadorFirmaWebhook]
+  }
+  package "mensajeria" as I_MSJ {
+    [PublicadorEventosSpring]
+    [DifusorTiemposEnVivo]
+    [NotificadorLog]
+  }
+  package "config" as I_CFG {
+    [ConfiguracionCasosDeUso]
+    [UnidadDeTrabajoSpring]
+    [ConfiguracionWeb]
+    [TareasProgramadas]
+  }
+}
+
+database "db/migration\n(Flyway V1, V2)" as SQL
+
+FE_API ..> PRES : HTTP/JSON /api/v1
+FE_WS ..> I_MSJ : WebSocket /ws
+
+PRES ..> APP : invoca casos de uso
+A_RES ..> PUERTOS
+A_PIS ..> PUERTOS
+A_FLO ..> PUERTOS
+A_ADM ..> PUERTOS
+APP ..> DOM : usa entidades
+
+[Repositorio*Jdbc] ..|> RepositorioReservas
+[Repositorio*Jdbc] ..|> RepositorioSesiones
+[Repositorio*Jdbc] ..|> RepositorioKarts
+[Repositorio*Jdbc] ..|> OTROS
+[PasarelaPagosSimulada] ..|> PasarelaPagos
+[NotificadorLog] ..|> Notificador
+[PublicadorEventosSpring] ..|> PublicadorEventos
+[UnidadDeTrabajoSpring] ..|> UnidadDeTrabajo
+I_PER ..> SQL
+
+[ConfiguracionCasosDeUso] ..> APP : <<crea>>\n(raíz de composición)
+
+note bottom of DOM
+  Regla de dependencia: el dominio no importa
+  Spring, JDBC ni HTTP. Las flechas siempre
+  apuntan hacia el núcleo.
+end note
+@enduml

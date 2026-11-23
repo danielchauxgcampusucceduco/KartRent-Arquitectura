@@ -1,0 +1,40 @@
+@startuml
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #333333
+skinparam rectangle {
+  BackgroundColor #D5F5E3
+  BorderColor #333333
+}
+skinparam usecase {
+  BackgroundColor #A9E4C3
+  BorderColor #333333
+  FontStyle bold
+}
+title Vista de contexto - KartRent
+
+rectangle "Piloto / Cliente" as PIL
+rectangle "Operador de Pista\n(Comisario)" as OPE
+rectangle "Administrador\ndel kartódromo" as ADM
+usecase "KartRent\nSistema Integral de Renta\ny Gestión Operativa de Karting" as SYS
+rectangle "Mecánico /\nJefe de Taller" as MEC
+rectangle "Pasarela de Pagos" as PAS
+rectangle "Sistema de Transponders\ny sensores de pista" as TRA
+
+' --- Actores humanos (izquierda) ---
+PIL --> SYS : Registro, exoneración\ny reserva de tanda [HU-01]
+PIL <-- SYS : Confirmación, factura\ny tiempos en vivo [HU-01, HU-03]
+OPE --> SYS : Asignación kart-piloto,\ninicio y fin de tanda [HU-02]
+OPE <-- SYS : Parrilla de salida\ny estado de karts [HU-02]
+ADM --> SYS : Tarifas, horarios\ny umbrales de flota [HU-05]
+ADM <-- SYS : Reportes de ocupación\ne ingresos [HU-05]
+
+' --- Taller y sistemas externos (derecha) ---
+SYS --> MEC : Órdenes preventivas\ny alertas de desgaste [HU-04]
+SYS <-- MEC : Cierre de orden\ny kart habilitado [HU-04]
+SYS --> PAS : Solicitud de cobro [HU-01]
+SYS <-- PAS : Resultado de la\ntransacción (webhook) [HU-01]
+SYS --> TRA : Vínculo transponder-kart\ny configuración de bucles [HU-02]
+SYS <-- TRA : Pasos por bucle\n(transponder, hora) [HU-03]
+@enduml

@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: kartrent-api
+  datasource:
+    url: ${DB_URL:jdbc:h2:mem:kartrent;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH}
+    username: ${DB_USER:sa}
+    password: ${DB_PASSWORD:}
+  flyway:
+    locations: classpath:db/migration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+kartrent:
+  zona-horaria: America/Bogota
+  cors-origenes: ${CORS_ORIGINS:http://localhost:5173,http://localhost:3000}
+  webhook-secreto: ${WEBHOOK_SECRET:cambia-este-secreto}
+  expiracion-ms: 60000
