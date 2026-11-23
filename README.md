@@ -79,9 +79,10 @@ Sin credenciales, una ruta protegida responde **401**; con un rol sin permiso, *
    - Si cierra `M-01`, se rechaza (RN-10). Si cierra `M-02`, el kart vuelve a DISPONIBLE con el contador en 0.
 6. **Administración (HU-05).** Entrar como `admin`: tarifas, tandas, cancelar una tanda, umbral y gráfico de ocupación (RN-13).
 
-## Diapositivas
+## Diapositivas y demo en vivo
 
-La exposición está en [`diapositivas`](diapositivas): `KartRent.html` (se abre en cualquier navegador; flechas o clic para avanzar, clic en un diagrama para ampliarlo, `F` para pantalla completa) y `KartRent.pptx` (la misma presentación en PowerPoint). Ambas tienen siete diapositivas: portada, las cinco vistas y cierre.
+- **Demo desplegada:** https://kartrent.onrender.com (frontend) · https://kartrent-api.onrender.com/swagger-ui.html (API). Está en el plan gratuito de Render: si nadie la usa durante 15 minutos se duerme y la primera visita tarda 1 a 2 minutos en despertar; ábrela unos minutos antes de exponer. La base es H2 en memoria con los datos de demostración, así que se reinicia cada vez que el servicio despierta.
+- **Presentación:** la carpeta [`diapositivas`](diapositivas) tiene `KartRent.html` (animada; flechas o clic para avanzar, clic en un diagrama para ampliarlo, `F` para pantalla completa), `KartRent.pptx` (la misma presentación en PowerPoint) y `KartRent.vpp`. En ambas, el botón o el clic sobre un diagrama abre `KartRent.vpp` en Visual Paradigm; por eso los tres archivos deben estar en la misma carpeta. Siete diapositivas: portada, las cinco vistas y cierre.
 
 ## Arquitectura (cinco vistas)
 
