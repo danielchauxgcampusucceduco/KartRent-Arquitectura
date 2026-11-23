@@ -24,7 +24,7 @@ node "«device»\nServidor Linux" as SRV #ECE8FF {
   node "«executionEnvironment»\nDocker Engine · docker compose" as DOCKER #F7F4FF {
     node "«executionEnvironment»\nContenedor frontend · nginx 1.27" as C_FE #FFFFFF {
       artifact "dist/ (SPA)" as A_DIST #0FA394
-      artifact "nginx.conf\nproxy /api, /ws, /swagger-ui,\n/v3/api-docs, /actuator/health" as A_NGX #0FA394
+      artifact "default.conf.template (nginx)\nproxy /api, /ws, /swagger-ui,\n/v3/api-docs, /actuator/health" as A_NGX #0FA394
     }
     node "«executionEnvironment»\nContenedor backend · JRE 21" as C_BE #DCD6FF {
       artifact "kartrent-backend.jar\nSpring Boot 3.3 · REST + STOMP" as A_API #0FA394
