@@ -307,4 +307,86 @@ class FlujoCompletoApiTest {
         org.junit.jupiter.api.Assertions.assertThrows(ConflictoConcurrenciaException.class, () -> sesiones.guardar(lecturaB));
         assertThat(sesiones.buscar("T-VER").orElseThrow().getCuposVendidos()).isEqualTo(1);
     }
+
+    private ResultActions patch(String url, String cuerpo) throws Exception {
+        return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(url)
+                .contentType(MediaType.APPLICATION_JSON).content(cuerpo));
+    }
+
+    private String reservar(String documento, String tanda, int cupos) throws Exception {
+        return leer(post("/api/v1/reservas", """
+                {"documentoCliente":"%s","codigoSesion":"%s","cupos":%d}""".formatted(documento, tanda, cupos))
+                .andExpect(status().isCreated())).get("codigo").asText();
+    }
+
+    private ResultActions pagar(String reserva, String clave) throws Exception {
+        return mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/v1/reservas/" + reserva + "/pagos").header("Idempotency-Key", clave)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"metodo\":\"TARJETA\"}"));
+    }
+
+    /** Cancelar reservas y tandas, retirar karts de la parrilla y reembolsar, contra la base de datos real. */
+    @Test
+    @Order(6)
+    void cancelacionesRetiroDeKartsYReembolsosPorHttp() throws Exception {
+        LocalDateTime inicio = LocalDateTime.now(ZoneId.of("America/Bogota")).plusHours(6).truncatedTo(ChronoUnit.MINUTES);
+        post("/api/v1/sesiones", """
+                {"codigo":"T-CANC","inicio":"%s","duracionMinutos":10,"cupos":4,"tipoKart":"ADULTO"}""".formatted(inicio))
+                .andExpect(status().isCreated());
+        post("/api/v1/clientes", """
+                {"documento":"1085999100","nombre":"Camila Erazo","correo":"camila@example.com","telefono":"300",
+                 "fechaNacimiento":"2000-03-10","aceptaExoneracion":true}""").andExpect(status().isCreated());
+
+        // Reserva pendiente: PATCH la cancela y libera los cupos retenidos
+        String pendiente = reservar("1085999100", "T-CANC", 2);
+        patch("/api/v1/reservas/" + pendiente, "{\"estado\":\"CANCELADA\"}")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("CANCELADA"));
+        mvc.perform(get("/api/v1/sesiones/T-CANC")).andExpect(jsonPath("$.cuposDisponibles").value(4));
+        patch("/api/v1/reservas/" + pendiente, "{\"estado\":\"CANCELADA\"}").andExpect(status().isConflict());
+        patch("/api/v1/reservas/" + pendiente, "{\"estado\":\"EXPIRADA\"}").andExpect(status().isBadRequest());
+        patch("/api/v1/reservas/" + java.util.UUID.randomUUID(), "{\"estado\":\"CANCELADA\"}")
+                .andExpect(status().isNotFound());
+
+        // Reserva pagada con kart asignado: no se cancela hasta retirar el kart; luego se reembolsa
+        String pagada = reservar("1085999100", "T-CANC", 1);
+        pagar(pagada, "k-canc").andExpect(status().isCreated()).andExpect(jsonPath("$.pago.reembolsado").value(false));
+        post("/api/v1/sesiones/T-CANC/asignaciones", """
+                {"codigoReserva":"%s","documentoPiloto":"1085999100","numeroKart":4}""".formatted(pagada))
+                .andExpect(status().isCreated());
+        patch("/api/v1/reservas/" + pagada, "{\"estado\":\"CANCELADA\"}").andExpect(status().isConflict());
+
+        mvc.perform(delete("/api/v1/sesiones/T-CANC/asignaciones/4")).andExpect(status().isNoContent());
+        mvc.perform(delete("/api/v1/sesiones/T-CANC/asignaciones/4")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/sesiones/T-CANC"))
+                .andExpect(jsonPath("$.estado").value("PROGRAMADA"))
+                .andExpect(jsonPath("$.asignaciones").isEmpty());
+        mvc.perform(get("/api/v1/flota/karts"))
+                .andExpect(jsonPath("$[3].numero").value(4)).andExpect(jsonPath("$[3].estado").value("DISPONIBLE"));
+
+        patch("/api/v1/reservas/" + pagada, "{\"estado\":\"CANCELADA\"}")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("REEMBOLSADA"));
+        pagar(pagada, "k-canc").andExpect(status().isOk()).andExpect(jsonPath("$.pago.reembolsado").value(true));
+
+        // Cancelar la tanda: libera karts, reembolsa lo pagado y cancela lo pendiente
+        String otraPagada = reservar("1085999100", "T-CANC", 1);
+        pagar(otraPagada, "k-canc-2").andExpect(status().isCreated());
+        post("/api/v1/sesiones/T-CANC/asignaciones", """
+                {"codigoReserva":"%s","documentoPiloto":"1085999100","numeroKart":5}""".formatted(otraPagada))
+                .andExpect(status().isCreated());
+        String otraPendiente = reservar("1085999100", "T-CANC", 1);
+
+        patch("/api/v1/sesiones/T-CANC", "{\"estado\":\"CANCELADA\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("CANCELADA"))
+                .andExpect(jsonPath("$.cuposVendidos").value(0))
+                .andExpect(jsonPath("$.asignaciones").isEmpty());
+        mvc.perform(get("/api/v1/reservas/" + otraPagada)).andExpect(jsonPath("$.estado").value("REEMBOLSADA"));
+        mvc.perform(get("/api/v1/reservas/" + otraPendiente)).andExpect(jsonPath("$.estado").value("CANCELADA"));
+        mvc.perform(get("/api/v1/flota/karts"))
+                .andExpect(jsonPath("$[4].numero").value(5)).andExpect(jsonPath("$[4].estado").value("DISPONIBLE"));
+        patch("/api/v1/sesiones/T-CANC", "{\"estado\":\"CANCELADA\"}").andExpect(status().isConflict());
+        patch("/api/v1/sesiones/NO-EXISTE", "{\"estado\":\"CANCELADA\"}").andExpect(status().isNotFound());
+        post("/api/v1/reservas", """
+                {"documentoCliente":"1085999100","codigoSesion":"T-CANC","cupos":1}""").andExpect(status().isConflict());
+    }
 }

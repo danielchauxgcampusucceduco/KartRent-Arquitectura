@@ -92,6 +92,20 @@ public class ControlarSesion {
         });
     }
 
+    /** El jefe de boxes retira un kart de la parrilla antes de iniciar; el kart vuelve a estar disponible. */
+    public void desasignarKart(String codigoSesion, int numeroKart) {
+        uow.ejecutarConReintentos(() -> {
+            SesionPista sesion = sesion(codigoSesion);
+            sesion.desasignarKart(numeroKart);
+            karts.buscar(numeroKart).ifPresent(kart -> {
+                kart.liberar();
+                karts.guardar(kart);
+            });
+            sesiones.guardar(sesion);
+            return null;
+        });
+    }
+
     public SesionPista iniciar(String codigoSesion) {
         return uow.ejecutarConReintentos(() -> {
             SesionPista sesion = sesion(codigoSesion);

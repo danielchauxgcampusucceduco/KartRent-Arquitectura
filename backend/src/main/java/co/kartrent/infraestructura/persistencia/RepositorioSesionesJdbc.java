@@ -77,6 +77,7 @@ public class RepositorioSesionesJdbc implements RepositorioSesiones {
     }
 
     private void guardarAsignaciones(SesionPista s) {
+        eliminarAsignacionesRetiradas(s);
         for (AsignacionKart a : s.getAsignaciones()) {
             int act = jdbc.sql("UPDATE asignaciones SET ultimo_paso = :ultimo WHERE codigo_sesion = :s AND numero_parrilla = :n")
                     .param("ultimo", Jdbc.timestamp(a.getUltimoPaso())).param("s", s.getCodigo())
@@ -91,6 +92,22 @@ public class RepositorioSesionesJdbc implements RepositorioSesiones {
                         .param("kart", a.getNumeroKart()).param("tr", a.getCodigoTransponder())
                         .param("ultimo", Jdbc.timestamp(a.getUltimoPaso())).update();
             }
+        }
+    }
+
+    /** Una asignación retirada de la parrilla (o toda la parrilla de una tanda cancelada) deja de existir en la base. */
+    private void eliminarAsignacionesRetiradas(SesionPista s) {
+        // Con la tanda en curso o terminada la parrilla ya no cambia: se evita una consulta por cada paso por meta.
+        if (s.getEstado() == EstadoSesion.EN_CURSO || s.getEstado() == EstadoSesion.FINALIZADA) return;
+        List<Integer> persistidas = jdbc.sql("SELECT numero_parrilla FROM asignaciones WHERE codigo_sesion = :s")
+                .param("s", s.getCodigo()).query(Integer.class).list();
+        List<Integer> vigentes = s.getAsignaciones().stream().map(AsignacionKart::getNumeroParrilla).toList();
+        for (Integer numero : persistidas) {
+            if (vigentes.contains(numero)) continue;
+            jdbc.sql("DELETE FROM vueltas WHERE codigo_sesion = :s AND numero_parrilla = :n")
+                    .param("s", s.getCodigo()).param("n", numero).update();
+            jdbc.sql("DELETE FROM asignaciones WHERE codigo_sesion = :s AND numero_parrilla = :n")
+                    .param("s", s.getCodigo()).param("n", numero).update();
         }
     }
 

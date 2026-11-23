@@ -52,6 +52,15 @@ public class PistaController {
         return AsignacionDto.de(controlar.asignarKart(codigo, a.codigoReserva(), a.documentoPiloto(), a.numeroKart()));
     }
 
+    @DeleteMapping("/sesiones/{codigo}/asignaciones/{numeroKart}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Retirar un kart de la parrilla antes de iniciar la tanda",
+            description = "El kart vuelve a estar disponible y el cupo del piloto queda libre para reasignar. 404 si el "
+                    + "kart no está en la parrilla; 409 si la tanda ya inició o no tiene parrilla armada.")
+    public void desasignar(@PathVariable String codigo, @PathVariable int numeroKart) {
+        controlar.desasignarKart(codigo, numeroKart);
+    }
+
     @PostMapping("/sesiones/{codigo}/iniciar")
     public SesionDto iniciar(@PathVariable String codigo) {
         return SesionDto.de(controlar.iniciar(codigo));

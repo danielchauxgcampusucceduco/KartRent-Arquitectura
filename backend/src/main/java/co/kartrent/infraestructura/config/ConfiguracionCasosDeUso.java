@@ -1,5 +1,6 @@
 package co.kartrent.infraestructura.config;
 
+import co.kartrent.aplicacion.administracion.CancelarTanda;
 import co.kartrent.aplicacion.administracion.ConfigurarOperacion;
 import co.kartrent.aplicacion.administracion.ReporteOcupacion;
 import co.kartrent.aplicacion.flota.ConsultarFlota;
@@ -40,9 +41,26 @@ public class ConfiguracionCasosDeUso {
     }
 
     @Bean
+    Reembolsos reembolsos(PasarelaPagos pasarela, RepositorioFacturacion f, UnidadDeTrabajo uow) {
+        return new Reembolsos(pasarela, f, uow);
+    }
+
+    @Bean
     PagarReserva pagarReserva(RepositorioReservas r, RepositorioClientes c, RepositorioFacturacion f, PasarelaPagos pasarela,
-                              Notificador n, PublicadorEventos e, ParametrosOperacion p, UnidadDeTrabajo uow, Clock reloj) {
-        return new PagarReserva(r, c, f, pasarela, n, e, p, uow, reloj);
+                              Reembolsos reembolsos, Notificador n, PublicadorEventos e, ParametrosOperacion p,
+                              UnidadDeTrabajo uow, Clock reloj) {
+        return new PagarReserva(r, c, f, pasarela, reembolsos, n, e, p, uow, reloj);
+    }
+
+    @Bean
+    CancelarReserva cancelarReserva(RepositorioReservas r, RepositorioSesiones s, Reembolsos reembolsos, UnidadDeTrabajo uow) {
+        return new CancelarReserva(r, s, reembolsos, uow);
+    }
+
+    @Bean
+    CancelarTanda cancelarTanda(RepositorioSesiones s, RepositorioReservas r, RepositorioKarts k, RepositorioClientes c,
+                                Reembolsos reembolsos, Notificador n, UnidadDeTrabajo uow) {
+        return new CancelarTanda(s, r, k, c, reembolsos, n, uow);
     }
 
     @Bean

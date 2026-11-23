@@ -52,6 +52,11 @@ public abstract class Kart {
         estado = EstadoKart.EN_PISTA;
     }
 
+    /** El kart sale de la parrilla sin haber corrido: vuelve a estar disponible. */
+    public void liberar() {
+        if (estado == EstadoKart.EN_PISTA) estado = EstadoKart.DISPONIBLE;
+    }
+
     /** Acumula el uso al cerrar una tanda y devuelve el kart a boxes. */
     public void registrarUso(int minutos, double km) {
         if (minutos < 0 || km < 0) throw new ReglaNegocioException("El uso no puede ser negativo");

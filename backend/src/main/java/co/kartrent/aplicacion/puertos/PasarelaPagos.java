@@ -12,6 +12,12 @@ public interface PasarelaPagos {
     ResultadoPago cobrar(String referencia, BigDecimal monto, MetodoPago metodo);
 
     /**
+     * Devuelve a la tarjeta o cuenta el dinero de un cobro aprobado. Idempotente por referencia: repetir la llamada
+     * con la misma referencia no devuelve el dinero dos veces.
+     */
+    void reembolsar(String referencia, BigDecimal monto);
+
+    /**
      * Verifica la firma y lee el cuerpo del webhook.
      *
      * @throws co.kartrent.dominio.comun.NoAutorizadoException si la firma no coincide (401)

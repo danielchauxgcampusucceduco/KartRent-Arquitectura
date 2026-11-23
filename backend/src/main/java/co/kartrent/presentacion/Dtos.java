@@ -43,6 +43,11 @@ public final class Dtos {
     public record NuevaReserva(@NotBlank String documentoCliente, @NotBlank String codigoSesion, @Min(1) @Max(20) int cupos) {
     }
 
+    /** Cuerpo de PATCH: el único cambio de estado que el cliente puede pedir es CANCELADA. */
+    public record CambioEstado(@NotBlank @Pattern(regexp = "CANCELADA", message = "Solo se admite el estado CANCELADA")
+                               String estado) {
+    }
+
     public record NuevoPago(@NotNull MetodoPago metodo) {
     }
 
@@ -86,9 +91,10 @@ public final class Dtos {
     }
 
     public record PagoInfoDto(String referenciaPasarela, BigDecimal monto, String metodo, boolean aprobado,
-                              LocalDateTime fechaPago) {
+                              boolean reembolsado, LocalDateTime fechaPago) {
         static PagoInfoDto de(Pago p) {
-            return new PagoInfoDto(p.referenciaPasarela(), p.monto(), p.metodo().name(), p.aprobado(), p.fechaPago());
+            return new PagoInfoDto(p.referenciaPasarela(), p.monto(), p.metodo().name(), p.aprobado(), p.reembolsado(),
+                    p.fechaPago());
         }
     }
 

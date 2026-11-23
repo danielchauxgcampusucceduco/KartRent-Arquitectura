@@ -45,6 +45,9 @@ public final class Memoria {
             return datos.values().stream().filter(r -> r.getCodigoSesion().equals(s)
                     && r.getEstado() == EstadoReserva.CONFIRMADA).toList();
         }
+        public List<Reserva> porSesion(String s) {
+            return datos.values().stream().filter(r -> r.getCodigoSesion().equals(s)).toList();
+        }
         public List<Reserva> porCliente(String d) {
             return datos.values().stream().filter(r -> r.getDocumentoCliente().equals(d)).toList();
         }
@@ -100,6 +103,9 @@ public final class Memoria {
         public final Map<UUID, Factura> facturas = new LinkedHashMap<>();
         public void guardarPago(Pago p) { pagos.put(p.referenciaPasarela(), p); }
         public Optional<Pago> pagoPorReferencia(String r) { return Optional.ofNullable(pagos.get(r)); }
+        public List<Pago> pagosDeReserva(UUID c) {
+            return pagos.values().stream().filter(p -> p.codigoReserva().equals(c)).toList();
+        }
         public void guardarFactura(Factura f) { facturas.put(f.codigoReserva(), f); }
         public Optional<Factura> facturaDeReserva(UUID c) { return Optional.ofNullable(facturas.get(c)); }
         public String siguienteNumeroFactura() { return String.format("KRFE-%06d", facturas.size() + 1); }
@@ -118,10 +124,12 @@ public final class Memoria {
     public static class PasarelaAprobadora implements PasarelaPagos {
         public boolean aprobar = true;
         public int cobros = 0;
+        public final List<String> reembolsos = new ArrayList<>();
         public ResultadoPago cobrar(String referencia, BigDecimal monto, MetodoPago metodo) {
             cobros++;
             return new ResultadoPago(aprobar, referencia, aprobar ? "APROBADA" : "RECHAZADA");
         }
+        public void reembolsar(String referencia, BigDecimal monto) { reembolsos.add(referencia); }
         public NotificacionPago interpretarNotificacion(String cuerpo, String firma) {
             throw new UnsupportedOperationException("El webhook se prueba con la pasarela simulada");
         }

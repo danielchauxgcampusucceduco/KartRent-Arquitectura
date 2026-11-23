@@ -13,4 +13,5 @@ public interface RepositorioReservas {
     List<Reserva> pendientesVencidas(LocalDateTime ahora);
     List<Reserva> confirmadasPorSesion(String codigoSesion);
     List<Reserva> porCliente(String documento);
+    List<Reserva> porSesion(String codigoSesion);
 }

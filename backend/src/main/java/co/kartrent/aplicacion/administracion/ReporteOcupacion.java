@@ -2,6 +2,7 @@ package co.kartrent.aplicacion.administracion;
 
 import co.kartrent.aplicacion.puertos.RepositorioReservas;
 import co.kartrent.aplicacion.puertos.RepositorioSesiones;
+import co.kartrent.dominio.pista.EstadoSesion;
 import co.kartrent.dominio.pista.SesionPista;
 import co.kartrent.dominio.reservas.Reserva;
 
@@ -23,6 +24,7 @@ public class ReporteOcupacion {
 
     public Reporte ejecutar(LocalDate desde, LocalDate hasta) {
         List<Linea> lineas = sesiones.listar().stream()
+                .filter(s -> s.getEstado() != EstadoSesion.CANCELADA)
                 .filter(s -> !s.getHoraInicioProgramada().toLocalDate().isBefore(desde)
                         && !s.getHoraInicioProgramada().toLocalDate().isAfter(hasta))
                 .sorted(Comparator.comparing(SesionPista::getHoraInicioProgramada))

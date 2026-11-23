@@ -98,9 +98,20 @@ public class Reserva {
         return false;
     }
 
+    /** El cliente (o el administrador) abandona una reserva que aún no se pagó: los cupos se liberan. */
     public void cancelar() {
-        if (estado == EstadoReserva.CONFIRMADA) throw new ConflictoException("Una reserva pagada se gestiona por reembolso");
+        if (estado != EstadoReserva.PENDIENTE_PAGO) {
+            throw new ConflictoException("Solo se cancela una reserva pendiente de pago; estado actual: " + estado);
+        }
         estado = EstadoReserva.CANCELADA;
+    }
+
+    /** Una reserva pagada se cancela devolviendo el dinero. */
+    public void reembolsar() {
+        if (estado != EstadoReserva.CONFIRMADA) {
+            throw new ConflictoException("Solo se reembolsa una reserva confirmada; estado actual: " + estado);
+        }
+        estado = EstadoReserva.REEMBOLSADA;
     }
 
     public UUID getCodigo() { return codigo; }

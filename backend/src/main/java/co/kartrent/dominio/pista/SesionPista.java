@@ -1,6 +1,7 @@
 package co.kartrent.dominio.pista;
 
 import co.kartrent.dominio.comun.ConflictoException;
+import co.kartrent.dominio.comun.RecursoNoEncontradoException;
 import co.kartrent.dominio.comun.ReglaNegocioException;
 import co.kartrent.dominio.flota.Kart;
 import co.kartrent.dominio.flota.TipoKart;
@@ -88,11 +89,48 @@ public class SesionPista {
         if (asignaciones.size() >= cuposVendidos) throw new ConflictoException("No hay más pilotos confirmados para asignar");
         if (kart.getCodigoTransponder() == null) throw new ConflictoException("El kart no tiene transponder vinculado");
 
-        AsignacionKart asignacion = new AsignacionKart(asignaciones.size() + 1, codigoReserva, documentoPiloto,
+        int siguienteParrilla = asignaciones.stream().mapToInt(AsignacionKart::getNumeroParrilla).max().orElse(0) + 1;
+        AsignacionKart asignacion = new AsignacionKart(siguienteParrilla, codigoReserva, documentoPiloto,
                 nombrePiloto, kart.getNumeroKart(), kart.getCodigoTransponder(), null, List.of());
         asignaciones.add(asignacion);
         estado = EstadoSesion.EN_PARRILLA;
         return asignacion;
+    }
+
+    /** El jefe de boxes retira un kart de la parrilla antes de iniciar; si queda vacía, la tanda vuelve a PROGRAMADA. */
+    public AsignacionKart desasignarKart(int numeroKart) {
+        if (estado != EstadoSesion.EN_PARRILLA) {
+            throw new ConflictoException("Solo se retira un kart mientras la parrilla está armada y la tanda no inicia");
+        }
+        AsignacionKart asignacion = asignaciones.stream().filter(a -> a.getNumeroKart() == numeroKart).findFirst()
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "El kart " + numeroKart + " no está en la parrilla de la tanda " + codigo));
+        asignaciones.remove(asignacion);
+        if (asignaciones.isEmpty()) estado = EstadoSesion.PROGRAMADA;
+        return asignacion;
+    }
+
+    /** Libera los cupos de una reserva cancelada; no se puede si su piloto ya tiene kart asignado o la tanda comenzó. */
+    public void liberarCuposDeReserva(UUID codigoReserva, int cupos) {
+        if (estado != EstadoSesion.PROGRAMADA && estado != EstadoSesion.EN_PARRILLA) {
+            throw new ConflictoException("La tanda " + codigo + " ya comenzó o terminó; la reserva no se puede cancelar");
+        }
+        if (asignaciones.stream().anyMatch(a -> a.getCodigoReserva().equals(codigoReserva))) {
+            throw new ConflictoException("La reserva tiene karts asignados; retíralos de la parrilla primero");
+        }
+        liberarCupos(cupos);
+    }
+
+    /** Cancela la tanda antes de que inicie. Devuelve las asignaciones retiradas para que Flota libere los karts. */
+    public List<AsignacionKart> cancelar() {
+        if (estado != EstadoSesion.PROGRAMADA && estado != EstadoSesion.EN_PARRILLA) {
+            throw new ConflictoException("Solo se cancela una tanda que no ha iniciado; estado actual: " + estado);
+        }
+        List<AsignacionKart> retiradas = new ArrayList<>(asignaciones);
+        asignaciones.clear();
+        cuposVendidos = 0;
+        estado = EstadoSesion.CANCELADA;
+        return retiradas;
     }
 
     public void iniciar(LocalDateTime ahora) {

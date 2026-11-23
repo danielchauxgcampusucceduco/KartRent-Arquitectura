@@ -37,3 +37,17 @@ Característica: HU-01 Reservar y pagar una tanda en línea
     Dado el cliente "1085000009" de 30 años sin exoneración firmada
     Cuando el cliente "1085000009" intenta reservar 1 cupos en la tanda "T-1800"
     Entonces se rechaza indicando "exoneración"
+
+  Escenario: Cancelar una reserva pendiente libera los cupos retenidos
+    Cuando el cliente "1085000001" reserva 3 cupos en la tanda "T-1800"
+    Y cancela la reserva
+    Entonces la reserva queda "CANCELADA"
+    Y la tanda "T-1800" tiene 4 cupos disponibles
+
+  Escenario: Cancelar una reserva pagada reembolsa el pago
+    Cuando el cliente "1085000001" reserva 2 cupos en la tanda "T-1800"
+    Y paga la reserva con "TARJETA" y la clave "pago-2"
+    Y cancela la reserva
+    Entonces la reserva queda "REEMBOLSADA"
+    Y la tanda "T-1800" tiene 4 cupos disponibles
+    Y la pasarela reembolsó 1 pago

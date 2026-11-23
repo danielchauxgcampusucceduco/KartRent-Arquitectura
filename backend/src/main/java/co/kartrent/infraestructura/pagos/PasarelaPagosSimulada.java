@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Adaptador de la pasarela (Fabricación Pura). Simula una pasarela real para la demo: aprueba todo salvo el método
@@ -21,6 +23,8 @@ public class PasarelaPagosSimulada implements PasarelaPagos {
     private static final Logger log = LoggerFactory.getLogger(PasarelaPagosSimulada.class);
     private final VerificadorFirmaWebhook firma;
     private final ObjectMapper json;
+    /** Referencias ya devueltas: reembolsar dos veces la misma no devuelve el dinero dos veces. */
+    private final Set<String> reembolsadas = ConcurrentHashMap.newKeySet();
 
     public PasarelaPagosSimulada(VerificadorFirmaWebhook firma, ObjectMapper json) {
         this.firma = firma;
@@ -33,6 +37,13 @@ public class PasarelaPagosSimulada implements PasarelaPagos {
         log.info("Pasarela simulada: referencia={} monto={} metodo={} -> {}", referencia, monto, metodo,
                 aprobado ? "APROBADA" : "RECHAZADA");
         return new ResultadoPago(aprobado, referencia, aprobado ? "APROBADA" : "RECHAZADA");
+    }
+
+    @Override
+    public void reembolsar(String referencia, BigDecimal monto) {
+        if (reembolsadas.add(referencia)) {
+            log.info("Pasarela simulada: reembolso referencia={} monto={}", referencia, monto);
+        }
     }
 
     @Override

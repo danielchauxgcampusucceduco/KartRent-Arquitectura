@@ -22,14 +22,16 @@ public class ReservasController {
     private final RegistrarCliente registrarCliente;
     private final ReservarTanda reservarTanda;
     private final PagarReserva pagarReserva;
+    private final CancelarReserva cancelarReserva;
     private final ConsultarReservas consultar;
     private final Clock reloj;
 
     public ReservasController(RegistrarCliente registrarCliente, ReservarTanda reservarTanda, PagarReserva pagarReserva,
-                              ConsultarReservas consultar, Clock reloj) {
+                              CancelarReserva cancelarReserva, ConsultarReservas consultar, Clock reloj) {
         this.registrarCliente = registrarCliente;
         this.reservarTanda = reservarTanda;
         this.pagarReserva = pagarReserva;
+        this.cancelarReserva = cancelarReserva;
         this.consultar = consultar;
         this.reloj = reloj;
     }
@@ -70,14 +72,24 @@ public class ReservasController {
         return ReservaDto.de(consultar.reserva(codigo));
     }
 
+    @PatchMapping("/reservas/{codigo}")
+    @Operation(summary = "Cancelar la reserva (estado CANCELADA)",
+            description = "Pendiente de pago: libera los cupos. Confirmada: reembolsa el pago y pasa a REEMBOLSADA. "
+                    + "409 si ya estaba cancelada, expirada o reembolsada, si su piloto ya tiene kart asignado o si la "
+                    + "tanda ya comenzó; 400 si el estado pedido no es CANCELADA; 404 si la reserva no existe.")
+    public ReservaDto cancelar(@PathVariable UUID codigo, @Valid @RequestBody CambioEstado cambio) {
+        return ReservaDto.de(cancelarReserva.ejecutar(codigo));
+    }
+
     @PostMapping("/reservas/{codigo}/pagos")
     @Operation(summary = "Pagar la reserva. Idempotente con la cabecera Idempotency-Key",
             description = "201 cuando se registra un intento de pago nuevo, aprobado o rechazado: si pago.aprobado es false "
-                    + "la reserva sigue PENDIENTE_PAGO y se puede reintentar con otra Idempotency-Key. 200 cuando la clave "
-                    + "ya se había usado (no se cobra de nuevo). 409 si la reserva ya no está pendiente o la retención expiró.")
+                    + "la reserva sigue PENDIENTE_PAGO y se puede reintentar (con otra Idempotency-Key, o sin clave). 200 "
+                    + "cuando la clave ya se había usado (no se cobra de nuevo). 409 si la reserva ya no está pendiente, la "
+                    + "retención expiró o la clave pertenece a otra reserva.")
     public ResponseEntity<PagoDto> pagar(@PathVariable UUID codigo, @Valid @RequestBody NuevoPago p,
                                          @RequestHeader(name = "Idempotency-Key", required = false) String clave) {
-        var r = pagarReserva.ejecutar(codigo, p.metodo(), clave == null ? codigo.toString() : clave);
+        var r = pagarReserva.ejecutar(codigo, p.metodo(), clave);
         return ResponseEntity.status(r.repeticion() ? HttpStatus.OK : HttpStatus.CREATED).body(aDto(r));
     }
 

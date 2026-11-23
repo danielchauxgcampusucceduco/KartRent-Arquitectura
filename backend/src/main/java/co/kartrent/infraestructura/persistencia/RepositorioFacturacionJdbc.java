@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,7 +17,7 @@ public class RepositorioFacturacionJdbc implements RepositorioFacturacion {
     private final JdbcClient jdbc;
     private static final RowMapper<Pago> PAGO = (rs, i) -> new Pago(rs.getString("referencia"),
             Jdbc.uuid(rs, "codigo_reserva"), rs.getBigDecimal("monto"), MetodoPago.valueOf(rs.getString("metodo")), rs.getBoolean("aprobado"),
-            Jdbc.fechaHora(rs, "fecha_pago"));
+            Jdbc.fechaHora(rs, "fecha_pago"), rs.getBoolean("reembolsado"));
     private static final RowMapper<Factura> FACTURA = (rs, i) -> new Factura(rs.getString("numero"), rs.getString("cufe"),
             Jdbc.uuid(rs, "codigo_reserva"), Jdbc.fechaHora(rs, "fecha_emision"), rs.getBigDecimal("subtotal"),
             rs.getBigDecimal("iva"), rs.getBigDecimal("total"));
@@ -27,20 +28,31 @@ public class RepositorioFacturacionJdbc implements RepositorioFacturacion {
 
     @Override
     public void guardarPago(Pago p) {
-        int filas = jdbc.sql("UPDATE pagos SET aprobado = :aprobado, fecha_pago = :fecha WHERE referencia = :ref")
-                .param("aprobado", p.aprobado()).param("fecha", p.fechaPago()).param("ref", p.referenciaPasarela()).update();
+        int filas = jdbc.sql("""
+                        UPDATE pagos SET aprobado = :aprobado, fecha_pago = :fecha, metodo = :metodo,
+                               reembolsado = :reembolsado
+                        WHERE referencia = :ref""")
+                .param("aprobado", p.aprobado()).param("fecha", p.fechaPago()).param("metodo", p.metodo().name())
+                .param("reembolsado", p.reembolsado()).param("ref", p.referenciaPasarela()).update();
         if (filas == 0) {
             jdbc.sql("""
-                            INSERT INTO pagos (referencia, codigo_reserva, monto, metodo, aprobado, fecha_pago)
-                            VALUES (:ref, :reserva, :monto, :metodo, :aprobado, :fecha)""")
+                            INSERT INTO pagos (referencia, codigo_reserva, monto, metodo, aprobado, fecha_pago, reembolsado)
+                            VALUES (:ref, :reserva, :monto, :metodo, :aprobado, :fecha, :reembolsado)""")
                     .param("ref", p.referenciaPasarela()).param("reserva", p.codigoReserva()).param("monto", p.monto())
-                    .param("metodo", p.metodo().name()).param("aprobado", p.aprobado()).param("fecha", p.fechaPago()).update();
+                    .param("metodo", p.metodo().name()).param("aprobado", p.aprobado()).param("fecha", p.fechaPago())
+                    .param("reembolsado", p.reembolsado()).update();
         }
     }
 
     @Override
     public Optional<Pago> pagoPorReferencia(String referencia) {
         return jdbc.sql("SELECT * FROM pagos WHERE referencia = :r").param("r", referencia).query(PAGO).optional();
+    }
+
+    @Override
+    public List<Pago> pagosDeReserva(UUID codigoReserva) {
+        return jdbc.sql("SELECT * FROM pagos WHERE codigo_reserva = :r ORDER BY fecha_pago")
+                .param("r", codigoReserva).query(PAGO).list();
     }
 
     @Override

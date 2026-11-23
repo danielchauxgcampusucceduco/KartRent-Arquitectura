@@ -58,6 +58,12 @@ public class RepositorioReservasJdbc implements RepositorioReservas {
     }
 
     @Override
+    public List<Reserva> porSesion(String codigoSesion) {
+        return jdbc.sql("SELECT * FROM reservas WHERE codigo_sesion = :s ORDER BY fecha_creacion")
+                .param("s", codigoSesion).query(MAPEO).list();
+    }
+
+    @Override
     public List<Reserva> porCliente(String documento) {
         return jdbc.sql("SELECT * FROM reservas WHERE documento_cliente = :d ORDER BY fecha_creacion DESC")
                 .param("d", documento).query(MAPEO).list();

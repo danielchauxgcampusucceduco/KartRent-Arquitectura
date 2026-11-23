@@ -20,3 +20,13 @@ Característica: HU-05 Configurar la operación y consultar la ocupación
   Escenario: El administrador cambia el umbral de mantenimiento
     Cuando el administrador fija el umbral de mantenimiento en 25 horas
     Entonces el umbral vigente es 25 horas
+
+  Escenario: Cancelar una tanda cancela las reservas y reembolsa los pagos
+    Dado una tarifa ADULTO de 45000 pesos por cupo
+    Y una tanda "T-2300" de karts ADULTO con 4 cupos
+    Y el cliente "1085000001" de 24 años con exoneración firmada
+    Y el cliente "1085000001" tiene 2 cupos pagados en la tanda "T-2300"
+    Cuando el administrador cancela la tanda "T-2300"
+    Entonces la tanda "T-2300" queda "CANCELADA"
+    Y la reserva queda "REEMBOLSADA"
+    Y la pasarela reembolsó 1 pago

@@ -8,7 +8,10 @@ import co.kartrent.aplicacion.flota.RegistrarUso;
 import co.kartrent.aplicacion.pista.ControlarSesion;
 import co.kartrent.aplicacion.pista.RegistrarPaso;
 import co.kartrent.aplicacion.puertos.UnidadDeTrabajo;
+import co.kartrent.aplicacion.administracion.CancelarTanda;
+import co.kartrent.aplicacion.reservas.CancelarReserva;
 import co.kartrent.aplicacion.reservas.ExpirarReservas;
+import co.kartrent.aplicacion.reservas.Reembolsos;
 import co.kartrent.aplicacion.reservas.PagarReserva;
 import co.kartrent.aplicacion.reservas.RegistrarCliente;
 import co.kartrent.aplicacion.reservas.ReservarTanda;
@@ -34,8 +37,11 @@ public class Kartodromo {
 
     public final RegistrarCliente registrarCliente = new RegistrarCliente(clientes, uow, reloj);
     public final ReservarTanda reservarTanda = new ReservarTanda(clientes, sesiones, tarifas, reservas, parametros, uow, reloj);
-    public final PagarReserva pagarReserva = new PagarReserva(reservas, clientes, facturacion, pasarela, buzon, buzon,
-            parametros, uow, reloj);
+    public final Reembolsos reembolsos = new Reembolsos(pasarela, facturacion, uow);
+    public final PagarReserva pagarReserva = new PagarReserva(reservas, clientes, facturacion, pasarela, reembolsos, buzon,
+            buzon, parametros, uow, reloj);
+    public final CancelarReserva cancelarReserva = new CancelarReserva(reservas, sesiones, reembolsos, uow);
+    public final CancelarTanda cancelarTanda = new CancelarTanda(sesiones, reservas, karts, clientes, reembolsos, buzon, uow);
     public final ExpirarReservas expirarReservas = new ExpirarReservas(reservas, sesiones, uow, reloj);
     public final ConsultarFlota consultarFlota = new ConsultarFlota(karts, parametros);
     public final RegistrarUso registrarUso = new RegistrarUso(karts, ordenes, parametros, buzon, buzon, reloj);

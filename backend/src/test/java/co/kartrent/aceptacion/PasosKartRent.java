@@ -134,6 +134,22 @@ public class PasosKartRent {
         k.pagarReserva.ejecutar(reserva.getCodigo(), MetodoPago.valueOf(metodo), clave);
     }
 
+    @Cuando("cancela la reserva")
+    public void cancelarReserva() {
+        k.cancelarReserva.ejecutar(reserva.getCodigo());
+    }
+
+    @Cuando("el cliente {string} intenta cancelar su reserva en la tanda {string}")
+    public void intentaCancelarReserva(String doc, String tanda) {
+        java.util.UUID codigo = reservaDe(doc, tanda);
+        intentar(() -> k.cancelarReserva.ejecutar(codigo));
+    }
+
+    @Entonces("la pasarela reembolsó {int} pago")
+    public void reembolsos(int n) {
+        assertEquals(n, k.pasarela.reembolsos.size());
+    }
+
     @Cuando("pasan {int} minutos")
     public void pasan(int minutos) {
         k.reloj.avanzar(Duration.ofMinutes(minutos));
@@ -187,6 +203,16 @@ public class PasosKartRent {
     @Cuando("el jefe de boxes intenta asignar el kart {int} al piloto {string} en la tanda {string}")
     public void intentaAsignar(int kart, String doc, String tanda) {
         intentar(() -> k.controlarSesion.asignarKart(tanda, reservaDe(doc, tanda), doc, kart));
+    }
+
+    @Cuando("el jefe de boxes retira el kart {int} de la tanda {string}")
+    public void desasignar(int kart, String tanda) {
+        k.controlarSesion.desasignarKart(tanda, kart);
+    }
+
+    @Cuando("el jefe de boxes intenta retirar el kart {int} de la tanda {string}")
+    public void intentaDesasignar(int kart, String tanda) {
+        intentar(() -> k.controlarSesion.desasignarKart(tanda, kart));
     }
 
     @Cuando("inicia la tanda {string}")
@@ -279,6 +305,11 @@ public class PasosKartRent {
     @Cuando("el administrador intenta programar la tanda {string} de karts {word}")
     public void intentaProgramar(String codigo, String tipo) {
         intentar(() -> k.configurarOperacion.programarTanda(codigo, LocalDateTime.now(k.reloj).plusHours(2), 10, 6, TipoKart.valueOf(tipo)));
+    }
+
+    @Cuando("el administrador cancela la tanda {string}")
+    public void cancelarTanda(String tanda) {
+        k.cancelarTanda.ejecutar(tanda);
     }
 
     @Cuando("el administrador consulta el reporte de ocupación del mes")

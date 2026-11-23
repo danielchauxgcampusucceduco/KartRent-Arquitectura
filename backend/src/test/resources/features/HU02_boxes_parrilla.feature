@@ -25,3 +25,23 @@ Característica: HU-02 Asignar karts y armar la parrilla
   Escenario: No se puede iniciar una tanda sin parrilla
     Cuando el jefe de boxes intenta iniciar la tanda "T-1900"
     Entonces se rechaza indicando "parrilla"
+
+  Escenario: Retirar un kart de la parrilla lo deja disponible y reabre la asignación
+    Cuando el jefe de boxes asigna el kart 3 al piloto "1085000001" en la tanda "T-1900"
+    Y el jefe de boxes retira el kart 3 de la tanda "T-1900"
+    Entonces la tanda "T-1900" queda "PROGRAMADA"
+    Y el kart 3 queda "DISPONIBLE"
+    Cuando el jefe de boxes asigna el kart 4 al piloto "1085000001" en la tanda "T-1900"
+    Entonces el kart 4 queda "EN_PISTA"
+
+  Escenario: No se retira un kart de una tanda que ya inició
+    Cuando el jefe de boxes asigna el kart 3 al piloto "1085000001" en la tanda "T-1900"
+    Y inicia la tanda "T-1900"
+    Y el jefe de boxes intenta retirar el kart 3 de la tanda "T-1900"
+    Entonces se rechaza indicando "parrilla"
+
+  Escenario: Una reserva con kart asignado no se puede cancelar
+    Cuando el jefe de boxes asigna el kart 3 al piloto "1085000001" en la tanda "T-1900"
+    Y el cliente "1085000001" intenta cancelar su reserva en la tanda "T-1900"
+    Entonces se rechaza indicando "asignados"
+    Y la reserva queda "CONFIRMADA"
