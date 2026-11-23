@@ -99,12 +99,12 @@ public class SesionPista {
 
     /** El jefe de boxes retira un kart de la parrilla antes de iniciar; si queda vacía, la tanda vuelve a PROGRAMADA. */
     public AsignacionKart desasignarKart(int numeroKart) {
-        if (estado != EstadoSesion.EN_PARRILLA) {
-            throw new ConflictoException("Solo se retira un kart mientras la parrilla está armada y la tanda no inicia");
-        }
         AsignacionKart asignacion = asignaciones.stream().filter(a -> a.getNumeroKart() == numeroKart).findFirst()
                 .orElseThrow(() -> new RecursoNoEncontradoException(
                         "El kart " + numeroKart + " no está en la parrilla de la tanda " + codigo));
+        if (estado != EstadoSesion.EN_PARRILLA) {
+            throw new ConflictoException("Solo se retira un kart mientras la parrilla está armada y la tanda no inicia");
+        }
         asignaciones.remove(asignacion);
         if (asignaciones.isEmpty()) estado = EstadoSesion.PROGRAMADA;
         return asignacion;
