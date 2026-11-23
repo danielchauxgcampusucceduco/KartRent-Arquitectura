@@ -5,6 +5,7 @@ import EnVivo from './paginas/EnVivo'
 import Taller from './paginas/Taller'
 import Admin from './paginas/Admin'
 import { BarraSesion, Protegida } from './componentes'
+import { useServidorArrancando } from './arranque'
 
 const secciones = [
   { ruta: '/reservar', hu: 'HU-01', nombre: 'Reservar', rol: 'Piloto' },
@@ -15,6 +16,7 @@ const secciones = [
 ]
 
 export default function App() {
+  const arrancando = useServidorArrancando()
   return (
     <div className="marco">
       <header className="cabecera">
@@ -35,6 +37,11 @@ export default function App() {
         </nav>
         <BarraSesion />
       </header>
+      {arrancando && (
+        <div className="arrancando" role="status">
+          <span className="giro" aria-hidden /> Encendiendo el servidor… puede tardar hasta dos minutos la primera vez.
+        </div>
+      )}
       <main>
         <Routes>
           <Route path="/" element={<Navigate to="/reservar" replace />} />

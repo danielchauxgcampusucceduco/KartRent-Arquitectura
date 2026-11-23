@@ -1,5 +1,6 @@
 // Cliente HTTP de la API KartRent (/api/v1). Los errores llegan como Problem Details (RFC 7807).
 import { cabeceraAutorizacion, cerrarSesion } from './sesion'
+import { esArranque, marcarArranque } from './arranque'
 
 export type Cliente = { documento: string; nombre: string; correo: string; telefono: string; fechaNacimiento: string; edad: number; exoneracionFirmada: boolean }
 export type Reserva = { codigo: string; documentoCliente: string; codigoSesion: string; fechaCreacion: string; cupos: number; valorTotal: number; estado: string; venceRetencion: string }
@@ -79,18 +80,35 @@ function leerJson(texto: string): unknown {
 
 const textoDe = (v: unknown) => (typeof v === 'string' && v.trim() ? v : undefined)
 
+// Consultas GET que se reintentan mientras el backend arranca (hasta unos tres minutos).
+const ESPERAS_MS = [2000, 3000, 5000, 5000, 8000, 10000, 10000, 15000, 15000, 15000, 20000, 20000, 20000, 20000, 20000]
+const dormir = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+async function enviar(metodo: string, ruta: string, cuerpo: unknown, cabeceras: Record<string, string>, autorizacion?: string) {
+  const pedir = () => fetch(`/api/v1${ruta}`, {
+    method: metodo,
+    headers: { 'Content-Type': 'application/json', ...(autorizacion ? { Authorization: autorizacion } : {}), ...cabeceras },
+    body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
+  })
+  // Solo se reintentan lecturas: repetir un POST podría duplicar una operación.
+  const reintentable = metodo === 'GET'
+  for (let intento = 0; ; intento++) {
+    let r: Response | null = null
+    try { r = await pedir() } catch { r = null }
+    const arrancando = r === null || esArranque(r.status)
+    if (!arrancando || !reintentable || intento >= ESPERAS_MS.length) {
+      marcarArranque(false)
+      if (r === null) throw new ErrorApi(0)
+      return r
+    }
+    marcarArranque(true)
+    await dormir(ESPERAS_MS[intento])
+  }
+}
+
 async function llamar<T>(metodo: string, ruta: string, cuerpo?: unknown, cabeceras: Record<string, string> = {}): Promise<T> {
   const autorizacion = cabeceraAutorizacion()
-  let r: Response
-  try {
-    r = await fetch(`/api/v1${ruta}`, {
-      method: metodo,
-      headers: { 'Content-Type': 'application/json', ...(autorizacion ? { Authorization: autorizacion } : {}), ...cabeceras },
-      body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
-    })
-  } catch {
-    throw new ErrorApi(0)
-  }
+  const r = await enviar(metodo, ruta, cuerpo, cabeceras, autorizacion)
   const texto = await r.text().catch(() => '')
   const datos = texto ? leerJson(texto) : null
   if (!r.ok) {

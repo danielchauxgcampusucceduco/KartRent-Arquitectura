@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { api, ErrorApi } from './api'
 import { iniciarSesion, cabeceraAutorizacion } from './sesion'
 import { servidorFalso } from './pruebas-servidor'
+import { useServidorArrancando } from './arranque'
+import { renderHook } from '@testing-library/react'
 
 const falla = async (p: Promise<unknown>) => p.then(() => { throw new Error('debía fallar') }, e => e as ErrorApi)
 
@@ -29,10 +31,12 @@ describe('cliente HTTP: errores de la API', () => {
     expect(e.message).toMatch(/Error inesperado del servidor/)
   })
 
-  it('un fallo de red se informa como sin conexión', async () => {
+  it('un fallo de red en una operación que modifica datos se informa como sin conexión, sin reintentar', async () => {
     const { vi } = await import('vitest')
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch') }))
-    const e = await falla(api.sesiones())
+    const f = vi.fn(async () => { throw new TypeError('Failed to fetch') })
+    vi.stubGlobal('fetch', f)
+    const e = await falla(api.reservar('1', 'T-1', 1))
+    expect(f).toHaveBeenCalledTimes(1)
     expect(e.tipo).toBe('red')
     expect(e.titulo).toBe('Sin conexión con el servidor')
   })
@@ -50,5 +54,31 @@ describe('cliente HTTP: errores de la API', () => {
     const e = await falla(api.karts())
     expect(e.tipo).toBe('no-autenticado')
     expect(cabeceraAutorizacion()).toBeUndefined()
+  })
+})
+
+describe('cliente HTTP: servidor arrancando (despliegue gratuito)', () => {
+  it('una consulta GET espera mientras el proxy responde 503 y luego entrega los datos', async () => {
+    const { vi } = await import('vitest')
+    vi.useFakeTimers()
+    let llamadas = 0
+    servidorFalso([{ metodo: 'GET', ruta: /sesiones/, responder: () => (++llamadas < 3 ? { estado: 503, texto: '<html>Loading</html>' } : { estado: 200, cuerpo: [] }) }])
+    const aviso = renderHook(() => useServidorArrancando())
+    const p = api.sesiones()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(aviso.result.current).toBe(true)
+    await vi.advanceTimersByTimeAsync(3000)
+    await expect(p).resolves.toEqual([])
+    expect(llamadas).toBe(3)
+    expect(aviso.result.current).toBe(false)
+    vi.useRealTimers()
+  })
+
+  it('una operación POST con 503 no se repite (podría duplicar la reserva)', async () => {
+    let llamadas = 0
+    servidorFalso([{ metodo: 'POST', ruta: /reservas/, responder: () => { llamadas++; return { estado: 503, texto: 'Loading' } } }])
+    const e = await falla(api.reservar('1', 'T-1', 1))
+    expect(e.tipo).toBe('servidor')
+    expect(llamadas).toBe(1)
   })
 })

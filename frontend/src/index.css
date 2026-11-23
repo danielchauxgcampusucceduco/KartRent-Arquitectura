@@ -170,3 +170,7 @@ button.peligro { background: var(--rojo); color: white; }
 button.chico { padding: .15rem .5rem; font-size: .75rem; margin-left: .5rem }
 button.enlace { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer }
 .e-reembolsada { background: rgba(138, 143, 152, .25); color: inherit }
+
+.arrancando { display: flex; align-items: center; justify-content: center; gap: .75rem; padding: .7rem 1rem; background: rgba(255,200,0,.12); border-bottom: 1px solid var(--amarillo, #ffc800); color: inherit; font-size: .95rem; }
+.arrancando .giro { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; animation: giro .8s linear infinite; }
+@keyframes giro { to { transform: rotate(360deg); } }
