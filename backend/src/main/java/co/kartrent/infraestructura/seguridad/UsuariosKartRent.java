@@ -24,7 +24,9 @@ import java.util.Map;
 @Component
 public class UsuariosKartRent implements UserDetailsService {
     private static final int LARGO_MINIMO = 8;
-    private final Map<String, UserDetails> fijos;
+    /** nombre → {clave cifrada, rol}. Se guarda el texto y no el UserDetails porque Spring borra la clave del objeto
+     *  después de autenticar, así que cada consulta debe construir uno nuevo. */
+    private final Map<String, String[]> fijos;
     private final String claveMecanicos;
     private final RepositorioMecanicos mecanicos;
 
@@ -36,16 +38,16 @@ public class UsuariosKartRent implements UserDetailsService {
         this.mecanicos = mecanicos;
         this.claveMecanicos = cifrador.encode(exigir("mecanico-password", mecanico));
         this.fijos = Map.of(
-                "admin", usuario("admin", cifrador.encode(exigir("admin-password", admin)), "ADMIN"),
-                "boxes", usuario("boxes", cifrador.encode(exigir("boxes-password", boxes)), "BOXES"),
-                "cronometraje", usuario("cronometraje", cifrador.encode(exigir("cronometraje-password", cronometraje)),
-                        "CRONOMETRAJE"));
+                "admin", new String[]{cifrador.encode(exigir("admin-password", admin)), "ADMIN"},
+                "boxes", new String[]{cifrador.encode(exigir("boxes-password", boxes)), "BOXES"},
+                "cronometraje", new String[]{cifrador.encode(exigir("cronometraje-password", cronometraje)),
+                        "CRONOMETRAJE"});
     }
 
     @Override
     public UserDetails loadUserByUsername(String nombre) {
-        UserDetails fijo = fijos.get(nombre);
-        if (fijo != null) return fijo;
+        String[] fijo = fijos.get(nombre);
+        if (fijo != null) return usuario(nombre, fijo[0], fijo[1]);
         return mecanicos.buscar(nombre).map(m -> usuario(m.getCodigoEmpleado(), claveMecanicos, "MECANICO"))
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario desconocido"));
     }
